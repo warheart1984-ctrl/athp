@@ -36,3 +36,18 @@ athp certify
 
 For an in-process integration, use `athp.lib.Agent` with the certified
 `athp.moon_base.Harness`.
+
+## Color Teams
+
+The coordinator routes work to the nine specialized DevOps teams while ATHP
+continues to enforce lifecycle, signing, idempotency, and evidence rules:
+
+```python
+from athp import ColorTeamsCoordinator, Harness
+from athp.lib import Agent
+
+harness = Harness(hmac_secret=b"replace-me")
+teams = ColorTeamsCoordinator(harness)
+teams.register_team("white", Agent("color.white"))
+teams.assign("white", "scope-001", {"task_type": "governance.review"})
+```
