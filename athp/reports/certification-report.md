@@ -4,7 +4,7 @@
 - Harness: athp.moon_base (build digest `e8a6e819c51773b7cc0a051c77398fb6a345b4990feee102c92fa44d69a890bb`)
 - Suite: `conformance.py`
 - Conformance level claimed: **3** (wire + lifecycle + secure runtime)
-- Generated: 2026-09-18T15:31:13.000Z
+- Generated: 2026-09-18T15:31:55.000Z
 - Python: 3.12.10 (cpython)
 - OS: win32
 - Runner isolation: simulated (none)
@@ -64,7 +64,7 @@
 
 | Test ID | Req | Severity | Outcome | Detail |
 | --- | --- | --- | --- | --- |
-| ATHP-L2-001 | MUST | HIGH | PASS | span_id=dec-fc3e45ad-62d4-4722-81fc-d3fbff04511c trigger=REGISTER_OK |
+| ATHP-L2-001 | MUST | HIGH | PASS | span_id=dec-c85f4f94-a630-4a48-9305-4415b15e2c28 trigger=REGISTER_OK |
 | ATHP-L2-002 | MUST | HIGH | PASS | rejected-span-present=True |
 | ATHP-L2-003 | MUST | HIGH | PASS | status=SUCCEEDED states_seen=['EXECUTING', 'IDLE'] |
 | ATHP-L2-004 | MUST | CRITICAL | PASS | state=QUARANTINED error=SANDBOX_VIOLATION |
@@ -86,7 +86,7 @@
 | ATHP-L2-020 | MUST | MEDIUM | PASS | status=TIMED_OUT err=TASK_TIMEOUT state=IDLE |
 | ATHP-L2-021 | MUST | MEDIUM | PASS | status=TIMED_OUT state=QUARANTINED reason=TASK_TIMEOUT |
 | ATHP-L2-022 | MUST | HIGH | PASS | code=STATE_INVALID state=SHUTDOWN |
-| ATHP-L2-023 | SHOULD | LOW | PASS | p95=0.0ms p99=16.0ms |
+| ATHP-L2-023 | SHOULD | LOW | PASS | p95=0.0ms p99=15.0ms |
 ### Level 3 - 13/13 passing
 
 | Test ID | Req | Severity | Outcome | Detail |

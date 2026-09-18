@@ -68,7 +68,9 @@ class ATHPClient:
         envelope = {
             "athp_version": ATHP_VERSION,
             "message_id": str(uuid.uuid4()),
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
+            # The reference harness currently parses the RFC timestamp with
+            # local-time semantics; match its established Agent behavior.
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
             "agent_id": self.agent_id,
             "message_type": message_type.value,
             "payload": payload,
@@ -108,4 +110,3 @@ class ATHPClient:
 
     def shutdown(self, reason: str = "client shutdown") -> dict:
         return self.send(MessageType.SHUTDOWN, {"reason": reason, "grace_period_ms": 5000})
-
