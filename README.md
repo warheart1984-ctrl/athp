@@ -10,3 +10,18 @@ python athp/conformance.py
 ```
 
 The conformance suite writes certification reports under `athp/reports/`.
+
+## Agent integration
+
+Any coding agent can use the common client contract:
+
+```python
+from athp.client import ATHPClient, HttpTransport
+
+client = ATHPClient("my-coding-agent", HttpTransport("http://127.0.0.1:8000/message"), secret)
+client.register(["readonly_repo", "tests"])
+client.heartbeat()
+```
+
+The CLI also supports `register`, `heartbeat`, and `shutdown` using
+`ATHP_ENDPOINT`, `ATHP_AGENT_ID`, and `ATHP_SECRET` environment variables.

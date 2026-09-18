@@ -4,7 +4,7 @@
 - Harness: athp.moon_base (build digest `e8a6e819c51773b7cc0a051c77398fb6a345b4990feee102c92fa44d69a890bb`)
 - Suite: `conformance.py`
 - Conformance level claimed: **3** (wire + lifecycle + secure runtime)
-- Generated: 2026-09-18T14:15:41.000Z
+- Generated: 2026-09-18T15:31:13.000Z
 - Python: 3.12.10 (cpython)
 - OS: win32
 - Runner isolation: simulated (none)
@@ -64,7 +64,7 @@
 
 | Test ID | Req | Severity | Outcome | Detail |
 | --- | --- | --- | --- | --- |
-| ATHP-L2-001 | MUST | HIGH | PASS | span_id=dec-5c836978-d075-4f92-9991-0d7799f84253 trigger=REGISTER_OK |
+| ATHP-L2-001 | MUST | HIGH | PASS | span_id=dec-fc3e45ad-62d4-4722-81fc-d3fbff04511c trigger=REGISTER_OK |
 | ATHP-L2-002 | MUST | HIGH | PASS | rejected-span-present=True |
 | ATHP-L2-003 | MUST | HIGH | PASS | status=SUCCEEDED states_seen=['EXECUTING', 'IDLE'] |
 | ATHP-L2-004 | MUST | CRITICAL | PASS | state=QUARANTINED error=SANDBOX_VIOLATION |
