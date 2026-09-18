@@ -7,10 +7,12 @@ name = "athp"
 version = "0.1.0"
 description = "Agent Test Harness Protocol reference implementation and client"
 requires-python = ">=3.10"
+dependencies = [
+  "color-harness @ git+https://github.com/warheart1984-ctrl/color-harness.git@v0.1.0",
+]
 
 [project.scripts]
 athp = "athp.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["athp*"]
-
