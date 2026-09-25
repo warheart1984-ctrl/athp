@@ -497,6 +497,11 @@ class Harness:
         new_state = TRANSITION_RULES.get(key)
         if new_state is None:
             return None
+        if trigger == "RECOVERY":
+            if not self.perform_health_checks(agent_id):
+                return None
+            if not self._has_valid_recovery_decision(agent_id, actor, message_id):
+                return None
 
         span = EvidenceSpan(
             previous_state=prev,
@@ -512,6 +517,30 @@ class Harness:
         self.evidence_log.append(span)
         self._save_persistence()
         return span
+
+    def _has_valid_recovery_decision(
+        self, agent_id: str, reviewer_identity: str, decision_id: str
+    ) -> bool:
+        """Require a signed, registered reviewer RESUME decision for RECOVERY."""
+        if not decision_id or self.reviewer_roles.get(reviewer_identity) is None:
+            return False
+        agent = self.get_agent(agent_id)
+        risk = RiskClass.PRIVILEGED if agent.quarantine_reason == "RESOURCE_LIMIT" else \
+            (RiskClass.MODERATE if agent.quarantine_reason in (
+                "SECRET_EXPOSURE", "SANDBOX_VIOLATION", "EGRESS_DENIED"
+            ) else RiskClass.SAFE)
+        role = self.reviewer_roles[reviewer_identity]
+        if role not in AUTHORIZED_ROLES.get(risk, set()):
+            return False
+        return any(
+            record.decision_id == decision_id
+            and record.agent_id == agent_id
+            and record.reviewer_identity == reviewer_identity
+            and record.role == role
+            and record.decision == ReviewerDecision.RESUME.value
+            and self.verify_record(record)
+            for record in self.decisions
+        )
 
     # ---- Message envelope helpers ------------------------------------------
 
@@ -1073,7 +1102,9 @@ class Harness:
         span = None
         if decision == ReviewerDecision.RESUME:
             if agent.state in (AgentState.QUARANTINED, AgentState.ESCALATED) and self.perform_health_checks(agent_id):
-                span = self.transition(agent_id, "REVIEW_RESUME", actor=f"reviewer:{reviewer_identity}",
+                trigger = "RECOVERY" if agent.state == AgentState.QUARANTINED else "REVIEW_RESUME"
+                span = self.transition(agent_id, trigger, actor=reviewer_identity,
+                                       message_id=rec.decision_id,
                                        reason_code="REVIEW_RESUME")
                 agent.reset_heartbeat_counter()
         elif decision == ReviewerDecision.RETRY:
