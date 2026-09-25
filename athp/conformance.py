@@ -106,6 +106,11 @@ def _register(h: Harness, a: Agent, *, supported_versions: Optional[List[str]] =
     }, extra=extra))
 
 
+def _resume_scope(h: Harness, a: Agent, capabilities: Optional[List[str]] = None) -> dict:
+    current = h.get_agent(a.agent_id).effective_capabilities
+    return {"capabilities": list(current if capabilities is None else capabilities)}
+
+
 def _task(agent_id: str, *, task_id: Optional[str] = None,
           idempotency_key: Optional[str] = None, **overrides) -> dict:
     p = {
@@ -348,7 +353,7 @@ def _L2_005() -> Tuple[bool, str]:
         h.record_missed_heartbeat(a.agent_id)
     out = h.reviewer_decision(a.agent_id, reviewer_identity="alice@ci",
                               role="ci-operator", decision=ReviewerDecision.RESUME,
-                              findings="hb restored")
+                              findings="hb restored", scope=_resume_scope(h, a))
     st = h.get_agent(a.agent_id).state.value
     return out["ok"] and out["verified"] and st == AgentState.IDLE.value, \
         f"ok={out['ok']} verified={out['verified']} state={st}"
@@ -374,7 +379,7 @@ def _L2_007() -> Tuple[bool, str]:
     h.escalate(a.agent_id, reason="policy review required")
     out = h.reviewer_decision(a.agent_id, reviewer_identity="bob@sec",
                               role="security-lead", decision=ReviewerDecision.RESUME,
-                              findings="no findings")
+                              findings="no findings", scope=_resume_scope(h, a))
     return out["ok"] and h.get_agent(a.agent_id).state.value == AgentState.IDLE.value, \
         f"ok={out['ok']} state={out['state']}"
 
@@ -546,6 +551,7 @@ def _GH_N6() -> Tuple[bool, str]:
     decision = h.reviewer_decision(
         a.agent_id, reviewer_identity="alice@ci", role="ci-operator",
         decision=ReviewerDecision.RESUME, findings="health not restored",
+        scope=_resume_scope(h, a),
     )
     unhealthy = h.transition(
         a.agent_id, "RECOVERY", actor="alice@ci", message_id=decision["decision_id"]
@@ -562,6 +568,55 @@ def _GH_N6() -> Tuple[bool, str]:
         and recovered is not None and state_healthy == AgentState.IDLE.value, \
         f"forged-denied={forged is None} unhealthy-denied={unhealthy is None} " \
         f"state-unhealthy={state_unhealthy} recovered={recovered is not None} state-healthy={state_healthy}"
+
+
+def _H2_N8() -> Tuple[bool, str]:
+    h, a = _fresh()
+    _register(h, a)
+    for _ in range(3):
+        h.record_missed_heartbeat(a.agent_id)
+    agent = h.get_agent(a.agent_id)
+    initial_caps = list(agent.effective_capabilities)
+    initial_decisions = len(h.decisions)
+
+    expired = h.reviewer_decision(
+        a.agent_id, reviewer_identity="alice@ci", role="ci-operator",
+        decision=ReviewerDecision.RESUME, findings="expired review",
+        scope=_resume_scope(h, a), expiration="2000-01-01T00:00:00Z",
+    )
+    expired_denied = not expired["ok"] and expired.get("error") == ErrorCode.AUTH_INVALID.value
+    expired_unrecorded = len(h.decisions) == initial_decisions
+    expired_state = agent.state == AgentState.QUARANTINED
+
+    expanded = h.reviewer_decision(
+        a.agent_id, reviewer_identity="alice@ci", role="ci-operator",
+        decision=ReviewerDecision.RESUME, findings="scope expansion",
+        scope={"capabilities": initial_caps + ["host.fs.write"]},
+    )
+    expansion_denied = not expanded["ok"] and expanded.get("error") == ErrorCode.AUTH_INVALID.value
+    expansion_unrecorded = len(h.decisions) == initial_decisions
+
+    accepted = h.reviewer_decision(
+        a.agent_id, reviewer_identity="alice@ci", role="ci-operator",
+        decision=ReviewerDecision.RESUME, findings="narrow recovery scope",
+        scope={"capabilities": ["tests"]},
+    )
+    narrowed = agent.effective_capabilities == ["tests"]
+    h2, a2 = _fresh()
+    _register(h2, a2)
+    for _ in range(3):
+        h2.record_missed_heartbeat(a2.agent_id)
+    h2.escalate(a2.agent_id, reason="policy review required")
+    direct_resume = h2.transition(a2.agent_id, "REVIEW_RESUME", actor="attacker", message_id="fake")
+    direct_denied = direct_resume is None and h2.get_agent(a2.agent_id).state == AgentState.ESCALATED
+
+    passed = expired_denied and expired_unrecorded and expired_state \
+        and expansion_denied and expansion_unrecorded \
+        and accepted["ok"] and narrowed and direct_denied
+    return passed, \
+        f"expired-denied={expired_denied} expired-unrecorded={expired_unrecorded} " \
+        f"scope-expansion-denied={expansion_denied} narrowed={narrowed} " \
+        f"direct-review-resume-denied={direct_denied}"
 
 
 def _L2_018() -> Tuple[bool, str]:
@@ -786,7 +841,8 @@ def _L3_010() -> Tuple[bool, str]:
     for _ in range(3):
         h.record_missed_heartbeat(a.agent_id)
     out = h.reviewer_decision(a.agent_id, reviewer_identity="alice@ci", role="security-lead",
-                              decision=ReviewerDecision.RESUME, findings="x")
+                              decision=ReviewerDecision.RESUME, findings="x",
+                              scope=_resume_scope(h, a))
     return not out["ok"] and out.get("error") == ErrorCode.AUTH_INVALID.value and \
         h.get_agent(a.agent_id).state.value == AgentState.QUARANTINED.value, \
         f"ok={out['ok']} err={out.get('error')} state={h.get_agent(a.agent_id).state.value}"
@@ -800,11 +856,13 @@ def _L3_011() -> Tuple[bool, str]:
     a_miss = h.get_agent(a.agent_id)
     a_miss.missed_heartbeats = 3  # quarantine now exists AND health checks fail
     out = h.reviewer_decision(a.agent_id, reviewer_identity="alice@ci", role="ci-operator",
-                              decision=ReviewerDecision.RESUME, findings="unhealthy")
+                              decision=ReviewerDecision.RESUME, findings="unhealthy",
+                              scope=_resume_scope(h, a))
     st_unhealthy = h.get_agent(a.agent_id).state.value
     a_miss.missed_heartbeats = 0  # health checks now pass
     out2 = h.reviewer_decision(a.agent_id, reviewer_identity="alice@ci", role="ci-operator",
-                               decision=ReviewerDecision.RESUME, findings="recovered")
+                               decision=ReviewerDecision.RESUME, findings="recovered",
+                               scope=_resume_scope(h, a))
     st_resumed = h.get_agent(a.agent_id).state.value
     return not out["ok"] and st_unhealthy == AgentState.QUARANTINED.value and \
         out2["ok"] and st_resumed == AgentState.IDLE.value, \
@@ -832,7 +890,8 @@ def _L3_013() -> Tuple[bool, str]:
         {"name": "leak", "capability": "tests", "exposes_secret": True}]))
     h.escalate(a.agent_id, reason="security event requires review")
     h.reviewer_decision(a.agent_id, reviewer_identity="bob@sec", role="security-lead",
-                        decision=ReviewerDecision.RESUME, findings="reviewed")
+                        decision=ReviewerDecision.RESUME, findings="reviewed",
+                        scope=_resume_scope(h, a))
     st = h.get_agent(a.agent_id).state.value
     exposure_kept = any(s.reason_code == ErrorCode.SECRET_EXPOSURE.value for s in h.evidence_log)
     return st == AgentState.IDLE.value and exposure_kept, \
@@ -977,6 +1036,9 @@ def _build_suite() -> List[dict]:
         case("ATHP-L2-025", 2, "HIGH", True, "RECOVERY requires signed reviewer and passing health checks",
              "forged actor, then signed decision while unhealthy and healthy",
              "forged and unhealthy recovery denied; healthy signed recovery succeeds", _GH_N6),
+        case("ATHP-L2-026", 2, "HIGH", True, "Reviewer expiration and resume capability scope are enforced",
+             "expired review, scope expansion, then narrow valid resume",
+             "expired/expansive reviews denied; valid resume capabilities filtered", _H2_N8),
     ]
     level3 = [
         case("ATHP-L3-001", 3, "CRITICAL", True, "Sandbox escape attempt denied + quarantine",
@@ -1022,7 +1084,7 @@ def _build_suite() -> List[dict]:
 SECURITY_IDS = {"ATHP-L3-001", "ATHP-L3-002", "ATHP-L3-003", "ATHP-L3-004",
                 "ATHP-L3-005", "ATHP-L3-006", "ATHP-L3-007", "ATHP-L3-008",
                 "ATHP-L3-009", "ATHP-L3-010", "ATHP-L3-011", "ATHP-L3-012", "ATHP-L3-013", "ATHP-L3-014",
-                "ATHP-L2-025", "ATHP-HTTP-001", "ATHP-HTTP-002"}
+                "ATHP-L2-025", "ATHP-L2-026", "ATHP-HTTP-001", "ATHP-HTTP-002"}
 
 SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
 
