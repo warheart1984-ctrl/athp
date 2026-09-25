@@ -946,6 +946,42 @@ def _HTTP_AUTH_002() -> Tuple[bool, str]:
     return False, "unauthenticated recovery unexpectedly succeeded"
 
 
+def _GH_N8() -> Tuple[bool, str]:
+    """Successful heartbeats never count as failures; unknown shutdown is not success."""
+    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+    from athp import server, lifecycle as lifecycle_module
+
+    missing_uuid = object()
+    previous_uuid = getattr(lifecycle_module, "uuid", missing_uuid)
+    # GH-N7 separately repairs this missing import; inject it here so this test
+    # isolates the GH-N8 heartbeat path without changing that ticket's scope.
+    lifecycle_module.uuid = uuid
+    try:
+        lifecycle = server.HarnessLifecycle()
+        agent = lifecycle.get_or_create_agent("agent.gh-n8")
+        agent.state = server.AgentState.EXECUTING
+        agent.record_heartbeat_failure()
+        agent.record_heartbeat_failure()
+        heartbeat = server.handle_heartbeat(
+            {"agent_id": agent.agent_id, "message_id": "hb-gh-n8", "payload": {}}, lifecycle)
+        heartbeat_ok = (heartbeat["payload"].get("ack") is True
+                        and agent.state == server.AgentState.EXECUTING
+                        and agent._heartbeat_failures == 0)
+
+        shutdown = server.handle_shutdown(
+            {"agent_id": "agent.unknown-gh-n8", "message_id": "sh-gh-n8", "payload": {}}, lifecycle)
+        shutdown_denied = (shutdown["payload"].get("error") == ErrorCode.STATE_INVALID.value
+                           and shutdown["payload"].get("terminated") is not True)
+        return heartbeat_ok and shutdown_denied, \
+            f"heartbeat_ok={heartbeat_ok} state={agent.state.value} " \
+            f"counter={agent._heartbeat_failures} unknown_shutdown={shutdown['payload']}"
+    finally:
+        if previous_uuid is missing_uuid:
+            del lifecycle_module.uuid
+        else:
+            lifecycle_module.uuid = previous_uuid
+
+
 # ---------------------------------------------------------------------------
 # Suite registration
 # ---------------------------------------------------------------------------
@@ -1073,6 +1109,9 @@ def _build_suite() -> List[dict]:
              "signed message with configured key plus unknown-key forgery", "known key accepted; unknown key rejected", _HTTP_AUTH_001),
         case("ATHP-HTTP-002", 3, "HIGH", True, "HTTP recovery rejects unauthenticated caller",
              "unsigned recovery request", "HTTP 401/403 before state transition", _HTTP_AUTH_002),
+        case("ATHP-L2-027", 2, "HIGH", True, "Successful heartbeat and unknown shutdown fail closed",
+             "threshold-edge heartbeat and shutdown for unregistered agent",
+             "heartbeat acknowledged without quarantine; unknown shutdown rejected", _GH_N8),
     ]
     return level1 + level2 + level3
 
@@ -1084,7 +1123,7 @@ def _build_suite() -> List[dict]:
 SECURITY_IDS = {"ATHP-L3-001", "ATHP-L3-002", "ATHP-L3-003", "ATHP-L3-004",
                 "ATHP-L3-005", "ATHP-L3-006", "ATHP-L3-007", "ATHP-L3-008",
                 "ATHP-L3-009", "ATHP-L3-010", "ATHP-L3-011", "ATHP-L3-012", "ATHP-L3-013", "ATHP-L3-014",
-                "ATHP-L2-025", "ATHP-L2-026", "ATHP-HTTP-001", "ATHP-HTTP-002"}
+                "ATHP-L2-025", "ATHP-L2-026", "ATHP-L2-027", "ATHP-HTTP-001", "ATHP-HTTP-002"}
 
 SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
 

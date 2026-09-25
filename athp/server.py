@@ -30,7 +30,6 @@ from ._common import (
     verify_signature,
     now_utc_iso,
     parse_utc_iso,
-    HEARTBEAT_MISSED_THRESHOLD,
     SLA,
     RiskClass,
     TOOL_PROFILE_CI_STANDARD,
@@ -701,39 +700,7 @@ def handle_heartbeat(envelope: dict, lifecycle: HarnessLifecycle) -> dict:
             "Agent not registered",
         )
     
-    # Record heartbeat
-    failed_count = agent.record_heartbeat_failure()
-    
-    # Check if should quarantine
-    if failed_count >= HEARTBEAT_MISSED_THRESHOLD:
-        # Quarantine the agent
-        result = lifecycle.transition_agent(
-            agent_id,
-            Trigger.QUARANTINE,
-            actor="harness",
-            message_id=envelope["message_id"],
-            reason_code=ErrorCode.INTERNAL_ERROR,
-        )
-        
-        if result.success:
-            agent = lifecycle.agents[agent_id]
-            # Reset heartbeat counter after quarantine decision
-            agent.reset_heartbeat_failures()
-            
-            return {
-                "athp_version": "1.1",
-                "message_id": envelope["message_id"],
-                "timestamp": now_utc_iso(),
-                "agent_id": agent_id,
-                "message_type": MessageType.HEARTBEAT.value,
-                "payload": {"quarantined": True, "reason": "Consecutive heartbeat failures"},
-                "trace_id": envelope.get("trace_id", ""),
-                "span_id": envelope.get("span_id", ""),
-                "key_id": envelope.get("key_id", ""),
-                "signature": "",
-            }
-    
-    # Heartbeat acknowledged
+    # A received heartbeat is proof of liveness, not a missed heartbeat.
     agent.reset_heartbeat_failures()
     
     return {
@@ -763,14 +730,15 @@ def handle_shutdown(envelope: dict, lifecycle: HarnessLifecycle) -> dict:
     
     agent = lifecycle.agents.get(agent_id)
     if agent is None:
-        # Still return a valid response
+        # Do not claim termination when no registered agent exists.
         return {
             "athp_version": "1.1",
             "message_id": envelope["message_id"],
             "timestamp": now_utc_iso(),
             "agent_id": agent_id,
             "message_type": MessageType.SHUTDOWN.value,
-            "payload": {"reason": reason, "grace_period_ms": grace_period, "terminated": True},
+            "payload": {"error": ErrorCode.STATE_INVALID.value,
+                        "detail": "Agent not registered"},
             "trace_id": envelope.get("trace_id", ""),
             "span_id": envelope.get("span_id", ""),
             "key_id": envelope.get("key_id", ""),
