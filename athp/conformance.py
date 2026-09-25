@@ -745,11 +745,35 @@ def _L3_008() -> Tuple[bool, str]:
 def _L3_009() -> Tuple[bool, str]:
     h, a = _fresh()
     _register(h, a)
-    r = a.send(MessageType.TASK_ACCEPT, _task(a.agent_id))
+    task_id = "predictable-task-id"
+    r = a.send(MessageType.TASK_ACCEPT, _task(a.agent_id, task_id=task_id))
     arts = r["payload"].get("result_artifacts", [])
-    expected = hashlib.sha256(f"task-{r['payload']['task_id']}-result".encode()).hexdigest()
-    good = all(_sha_matches(art, expected) for art in arts)
-    return good, f"artifacts-verified={good}"
+    good = bool(arts) and all(
+        (content := h.artifacts.get(art.get("sha256", ""))) is not None
+        and hashlib.sha256(content).hexdigest() == art.get("sha256")
+        and len(content) == art.get("size_bytes")
+        for art in arts
+    )
+    legacy_digests = {
+        hashlib.sha256(f"task-{task_id}-result".encode()).hexdigest(),
+        hashlib.sha256(f"task-{task_id}-output".encode()).hexdigest(),
+    }
+    non_synthetic = all(art.get("sha256") not in legacy_digests for art in arts)
+
+    h2, a2 = _fresh()
+    _register(h2, a2)
+    r2 = a2.send(MessageType.TASK_ACCEPT, _task(a2.agent_id, task_id=task_id))
+    arts2 = r2["payload"].get("result_artifacts", [])
+    fresh_execution = bool(arts2) and all(
+        art.get("sha256") not in {value.get("sha256") for value in arts}
+        and (content := h2.artifacts.get(art.get("sha256", ""))) is not None
+        and hashlib.sha256(content).hexdigest() == art.get("sha256")
+        and len(content) == art.get("size_bytes")
+        for art in arts2
+    )
+    return good and non_synthetic and fresh_execution, \
+        f"artifact-bytes-verified={good} legacy-digest-rejected={non_synthetic} " \
+        f"same-task-id-new-output-digest={fresh_execution}"
 
 
 def _sha_matches(art: dict, expected: str) -> bool:

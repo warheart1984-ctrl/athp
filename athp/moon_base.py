@@ -321,6 +321,7 @@ class Harness:
         self._master_secret: Optional[bytes] = hmac_secret
         self.evidence_log: List[EvidenceSpan] = []
         self.decisions: List[ReviewerDecisionRecord] = []
+        self.artifacts: Dict[str, bytes] = {}
         self.reviewer_roles = dict(reviewer_roles or {})
         self.persist_path = persist_path
         self.clock_skew_seconds = clock_skew_seconds
@@ -987,13 +988,26 @@ class Harness:
             return {"status": ResultStatus.QUARANTINED.value, "error_code": code,
                     "detail": detail, "exit_code": 1}
         time.sleep(0.01)
-        result_sha = hashlib.sha256(f"task-{spec['task_id']}-result".encode()).hexdigest()
+        result_bytes = json.dumps(
+            {
+                "task_id": spec["task_id"],
+                "execution_id": str(uuid.uuid4()),
+                "status": ResultStatus.SUCCEEDED.value,
+                "exit_code": 0,
+                "result": "simulated execution output",
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        result_sha = hashlib.sha256(result_bytes).hexdigest()
+        harness.artifacts[result_sha] = result_bytes
         return {
             "status": ResultStatus.SUCCEEDED.value,
             "exit_code": 0,
             "error_code": None,
             "result_artifacts": [{"uri": f"artifact://result/{spec['task_id']}",
-                                  "sha256": result_sha}],
+                                  "sha256": result_sha,
+                                  "size_bytes": len(result_bytes)}],
             "resource_usage": {"wall_ms": 4812, "cpu_ms": 1960,
                                "peak_memory_mb": 1830},
             "detail": "",

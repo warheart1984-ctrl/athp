@@ -607,13 +607,35 @@ def simulate_task_execution(
     # Simulate some work
     _time.sleep(0.01)  # brief simulation
     
+    # The simulator stores the bytes behind each content-addressed artifact.
+    result_bytes = json.dumps(
+        {
+            "task_id": task_id,
+            "execution_id": str(uuid.uuid4()),
+            "task_type": task_type,
+            "status": "SUCCEEDED",
+            "exit_code": 0,
+            "result": "simulated execution output",
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    result_digest = hashlib.sha256(result_bytes).hexdigest()
+    result_uri = f"artifact://result/{task_id}/output"
+    ARTIFACT_STORE[result_digest] = {
+        "uri": result_uri,
+        "content": result_bytes,
+        "size_bytes": len(result_bytes),
+    }
+
     # Determine result based on task type
     if task_type == "coding.change":
         # Simulate a successful coding task
         result_artifacts = [
             {
-                "uri": f"artifact://result/{task_id}/output",
-                "sha256": hashlib.sha256(f"task-{task_id}-output".encode()).hexdigest(),
+                "uri": result_uri,
+                "sha256": result_digest,
+                "size_bytes": len(result_bytes),
             }
         ]
         return {
@@ -633,8 +655,9 @@ def simulate_task_execution(
         # Default to succeeded
         result_artifacts = [
             {
-                "uri": f"artifact://result/{task_id}/output",
-                "sha256": hashlib.sha256(f"task-{task_id}-output".encode()).hexdigest(),
+                "uri": result_uri,
+                "sha256": result_digest,
+                "size_bytes": len(result_bytes),
             }
         ]
         return {
