@@ -534,6 +534,36 @@ def _L2_024() -> Tuple[bool, str]:
         return False, "tampered persistence loaded"
 
 
+def _GH_N6() -> Tuple[bool, str]:
+    h, a = _fresh()
+    _register(h, a)
+    for _ in range(3):
+        h.record_missed_heartbeat(a.agent_id)
+    agent = h.get_agent(a.agent_id)
+    agent.missed_heartbeats = 3
+
+    forged = h.transition(a.agent_id, "RECOVERY", actor="attacker", message_id="fake")
+    decision = h.reviewer_decision(
+        a.agent_id, reviewer_identity="alice@ci", role="ci-operator",
+        decision=ReviewerDecision.RESUME, findings="health not restored",
+    )
+    unhealthy = h.transition(
+        a.agent_id, "RECOVERY", actor="alice@ci", message_id=decision["decision_id"]
+    )
+    state_unhealthy = agent.state.value
+
+    agent.missed_heartbeats = 0
+    recovered = h.transition(
+        a.agent_id, "RECOVERY", actor="alice@ci", message_id=decision["decision_id"]
+    )
+    state_healthy = agent.state.value
+    return forged is None and not decision["ok"] and unhealthy is None \
+        and state_unhealthy == AgentState.QUARANTINED.value \
+        and recovered is not None and state_healthy == AgentState.IDLE.value, \
+        f"forged-denied={forged is None} unhealthy-denied={unhealthy is None} " \
+        f"state-unhealthy={state_unhealthy} recovered={recovered is not None} state-healthy={state_healthy}"
+
+
 def _L2_018() -> Tuple[bool, str]:
     h, a = _fresh()
     _register(h, a)
@@ -920,6 +950,9 @@ def _build_suite() -> List[dict]:
              "60 sequential heartbeats", "p95<500ms", _L2_023),
         case("ATHP-L2-024", 2, "HIGH", True, "Tampered persistence HMAC is refused",
              "rewrite persisted idempotency data", "restart fails closed", _L2_024),
+        case("ATHP-L2-025", 2, "HIGH", True, "RECOVERY requires signed reviewer and passing health checks",
+             "forged actor, then signed decision while unhealthy and healthy",
+             "forged and unhealthy recovery denied; healthy signed recovery succeeds", _GH_N6),
     ]
     level3 = [
         case("ATHP-L3-001", 3, "CRITICAL", True, "Sandbox escape attempt denied + quarantine",
@@ -965,7 +998,7 @@ def _build_suite() -> List[dict]:
 SECURITY_IDS = {"ATHP-L3-001", "ATHP-L3-002", "ATHP-L3-003", "ATHP-L3-004",
                 "ATHP-L3-005", "ATHP-L3-006", "ATHP-L3-007", "ATHP-L3-008",
                 "ATHP-L3-009", "ATHP-L3-010", "ATHP-L3-011", "ATHP-L3-012", "ATHP-L3-013", "ATHP-L3-014",
-                "ATHP-HTTP-001", "ATHP-HTTP-002"}
+                "ATHP-L2-025", "ATHP-HTTP-001", "ATHP-HTTP-002"}
 
 SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
 
