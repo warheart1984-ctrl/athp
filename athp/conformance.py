@@ -30,7 +30,8 @@ import time
 import uuid
 from typing import Callable, Dict, List, Optional, Tuple
 
-from moon_base import (
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from athp.moon_base import (
     ATHP_VERSION,
     ErrorCode,
     Harness,
@@ -998,6 +999,33 @@ def _GH_N9() -> Tuple[bool, str]:
         f"literal_prefix_absent={literal_free} synthetic_secret_detection={secret_detection}"
 
 
+def _GH_N7() -> Tuple[bool, str]:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+    from athp import _common, lifecycle as lifecycle_module, moon_base
+
+    wire_agent = lifecycle_module.LifecycleState("agent.gh-n7-wire")
+    wire_registered = wire_agent.transition(lifecycle_module.Trigger.REGISTER_OK)
+    wire_task = wire_agent.transition(lifecycle_module.Trigger.TASK_ACCEPT)
+
+    reference = moon_base.Harness()
+    reference_registered = reference.transition("agent.gh-n7-reference", "REGISTER_OK")
+    reference_task = reference.transition("agent.gh-n7-reference", "TASK_ACCEPT")
+
+    shared_table = moon_base.TRANSITION_RULES is _common.TRANSITION_RULES
+    single_source = not hasattr(_common, "TRANSITION_TABLE") and not hasattr(moon_base, "TRIGGERS")
+    wire_ok = (wire_registered is not None and wire_registered.success
+               and wire_task is not None and wire_task.success
+               and wire_agent.state.value == "EXECUTING")
+    reference_ok = (reference_registered is not None and reference_task is not None
+                    and reference.get_agent("agent.gh-n7-reference").state.value == "EXECUTING")
+    decision_id_valid = (wire_task is not None
+                         and uuid.UUID(wire_task.evidence.decision_id[4:]) is not None)
+    passed = shared_table and single_source and wire_ok and reference_ok and decision_id_valid
+    return passed, \
+        f"shared_table={shared_table} single_source={single_source} " \
+        f"wire_ok={wire_ok} reference_ok={reference_ok} uuid_id={decision_id_valid}"
+
+
 # ---------------------------------------------------------------------------
 # Suite registration
 # ---------------------------------------------------------------------------
@@ -1131,6 +1159,9 @@ def _build_suite() -> List[dict]:
         case("ATHP-L2-028", 2, "HIGH", True, "Conformance fixtures contain no credential literals",
              "scan conformance source and exercise synthetic secret cases",
              "no literal prefix stored; synthetic credentials remain detected", _GH_N9),
+        case("ATHP-L2-029", 2, "HIGH", True, "Lifecycle implementations share one transition table",
+             "register and accept a task through both lifecycle implementations",
+             "one shared table drives both implementations and UUID decision IDs are valid", _GH_N7),
     ]
     return level1 + level2 + level3
 
@@ -1142,7 +1173,7 @@ def _build_suite() -> List[dict]:
 SECURITY_IDS = {"ATHP-L3-001", "ATHP-L3-002", "ATHP-L3-003", "ATHP-L3-004",
                 "ATHP-L3-005", "ATHP-L3-006", "ATHP-L3-007", "ATHP-L3-008",
                 "ATHP-L3-009", "ATHP-L3-010", "ATHP-L3-011", "ATHP-L3-012", "ATHP-L3-013", "ATHP-L3-014",
-                "ATHP-L2-025", "ATHP-L2-026", "ATHP-L2-027", "ATHP-L2-028",
+                "ATHP-L2-025", "ATHP-L2-026", "ATHP-L2-027", "ATHP-L2-028", "ATHP-L2-029",
                 "ATHP-HTTP-001", "ATHP-HTTP-002"}
 
 SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}

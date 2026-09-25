@@ -65,23 +65,33 @@ class Trigger(str, Enum):
     HARNESS_SHUTDOWN = "HARNESS_SHUTDOWN"
 
 
-# State transition table: (from_state, trigger) -> to_state
-TransitionTable = dict[tuple[AgentState, Trigger], AgentState]
-
-TRANSITION_TABLE: TransitionTable = {
-    (AgentState.INIT, Trigger.REGISTER_OK): AgentState.IDLE,
-    (AgentState.INIT, Trigger.REGISTER_REJECT): AgentState.REJECTED,
-    (AgentState.IDLE, Trigger.TASK_ACCEPT): AgentState.EXECUTING,
-    (AgentState.EXECUTING, Trigger.TASK_RESULT): AgentState.IDLE,
-    (AgentState.EXECUTING, Trigger.QUARANTINE): AgentState.QUARANTINED,
-    (AgentState.QUARANTINED, Trigger.RECOVERY): AgentState.IDLE,
-    (AgentState.QUARANTINED, Trigger.REVIEW_ESCALATION): AgentState.ESCALATED,
-    (AgentState.ESCALATED, Trigger.REVIEW_RESUME): AgentState.IDLE,
-    (AgentState.ESCALATED, Trigger.REVIEW_TERMINATION): AgentState.SHUTDOWN,
-    (AgentState.IDLE, Trigger.HARNESS_SHUTDOWN): AgentState.SHUTDOWN,
-    (AgentState.QUARANTINED, Trigger.HARNESS_SHUTDOWN): AgentState.SHUTDOWN,
-    (AgentState.ESCALATED, Trigger.HARNESS_SHUTDOWN): AgentState.SHUTDOWN,
-    (AgentState.REJECTED, Trigger.HARNESS_SHUTDOWN): AgentState.SHUTDOWN,
+# Canonical state transition table shared by the wire lifecycle and reference
+# harness. String keys keep it independent of either implementation's enums.
+TRANSITION_RULES: dict[tuple[str, str], str] = {
+    ("INIT", "REGISTER_OK"): "IDLE",
+    ("INIT", "REGISTER_REJECT"): "REJECTED",
+    ("IDLE", "TASK_ACCEPT"): "EXECUTING",
+    ("EXECUTING", "TASK_RESULT"): "IDLE",
+    ("EXECUTING", "QUARANTINE"): "QUARANTINED",
+    ("EXECUTING", "TIMEOUT"): "QUARANTINED",
+    ("EXECUTING", "RESOURCE_LIMIT"): "QUARANTINED",
+    ("EXECUTING", "HEARTBEAT_FAILURE"): "QUARANTINED",
+    ("EXECUTING", "SECURITY_EVENT"): "QUARANTINED",
+    ("EXECUTING", "POLICY_EVENT"): "QUARANTINED",
+    ("IDLE", "HEARTBEAT_FAILURE"): "QUARANTINED",
+    ("QUARANTINED", "RECOVERY"): "IDLE",
+    ("QUARANTINED", "REVIEW_RESUME"): "IDLE",
+    ("QUARANTINED", "REVIEW_ESCALATION"): "ESCALATED",
+    ("QUARANTINED", "SECURITY_EVENT"): "ESCALATED",
+    ("QUARANTINED", "POLICY_EVENT"): "ESCALATED",
+    ("ESCALATED", "REVIEW_RESUME"): "IDLE",
+    ("ESCALATED", "REVIEW_RETRY"): "IDLE",
+    ("ESCALATED", "REVIEW_TERMINATION"): "SHUTDOWN",
+    ("ESCALATED", "REVIEW_SHUTDOWN"): "SHUTDOWN",
+    ("IDLE", "HARNESS_SHUTDOWN"): "SHUTDOWN",
+    ("QUARANTINED", "HARNESS_SHUTDOWN"): "SHUTDOWN",
+    ("ESCALATED", "HARNESS_SHUTDOWN"): "SHUTDOWN",
+    ("REJECTED", "HARNESS_SHUTDOWN"): "SHUTDOWN",
 }
 
 

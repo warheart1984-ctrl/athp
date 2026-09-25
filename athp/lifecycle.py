@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, NamedTuple
 
@@ -9,7 +10,7 @@ from ._common import (
     AgentState,
     ErrorCode,
     Trigger,
-    TRANSITION_TABLE,
+    TRANSITION_RULES,
     now_utc_iso,
     now_utc_timestamp,
     ATHPVersion,
@@ -83,9 +84,9 @@ class LifecycleState:
                    message_id: Optional[str] = None, 
                    reason_code: ErrorCode = ErrorCode.INTERNAL_ERROR) -> TransitionResult:
         """Attempt a state transition. Returns result with evidence or error."""
-        key = (self.state, trigger)
+        key = (self.state.value, trigger.value)
         
-        if key not in TRANSITION_TABLE:
+        if key not in TRANSITION_RULES:
             return TransitionResult(
                 success=False,
                 new_state=self.state,
@@ -93,7 +94,7 @@ class LifecycleState:
                 error=self._error_state_invalid_transition(trigger),
             )
         
-        new_state = TRANSITION_TABLE[key]
+        new_state = AgentState(TRANSITION_RULES[key])
         
         # Build evidence span
         decision_id = f"dec-{uuid.uuid4()}"
