@@ -21,6 +21,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
@@ -65,6 +66,25 @@ def jcs_sha256(obj: Any) -> str:
     """Content digest over JCS output (used for report artifact digests)."""
     data = obj if isinstance(obj, bytes) else jcs_canonicalize(obj)
     return hashlib.sha256(data).hexdigest()
+
+
+def _expiration_epoch(value: str) -> Optional[float]:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+        parsed = datetime.fromisoformat(normalized)
+        if parsed.tzinfo is None:
+            return None
+        return parsed.timestamp()
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _future_expiration(seconds: int = 300) -> str:
+    return (datetime.now(timezone.utc) + timedelta(seconds=seconds)).isoformat().replace(
+        "+00:00", "Z"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -498,10 +518,12 @@ class Harness:
         new_state = TRANSITION_RULES.get(key)
         if new_state is None:
             return None
-        if trigger == "RECOVERY":
+        resume_decision = None
+        if trigger in {"RECOVERY", "REVIEW_RESUME"}:
             if not self.perform_health_checks(agent_id):
                 return None
-            if not self._has_valid_recovery_decision(agent_id, actor, message_id):
+            resume_decision = self._valid_recovery_decision(agent_id, actor, message_id)
+            if resume_decision is None:
                 return None
 
         span = EvidenceSpan(
@@ -515,16 +537,34 @@ class Harness:
             reason_code=reason_code,
         )
         agent.state = new_state
+        if resume_decision is not None:
+            agent.effective_capabilities = self._resume_capability_filter(
+                agent, resume_decision.scope
+            ) or []
         self.evidence_log.append(span)
         self._save_persistence()
         return span
 
-    def _has_valid_recovery_decision(
+    @staticmethod
+    def _resume_capability_filter(agent: AgentContext, scope: dict) -> Optional[List[str]]:
+        if not isinstance(scope, dict) or set(scope) != {"capabilities"}:
+            return None
+        requested = scope.get("capabilities")
+        if not isinstance(requested, list) or any(
+            not isinstance(cap, str) or not cap.strip() for cap in requested
+        ):
+            return None
+        if not set(requested) <= set(agent.effective_capabilities):
+            return None
+        requested_set = set(requested)
+        return [cap for cap in agent.effective_capabilities if cap in requested_set]
+
+    def _valid_recovery_decision(
         self, agent_id: str, reviewer_identity: str, decision_id: str
-    ) -> bool:
+    ) -> Optional[ReviewerDecisionRecord]:
         """Require a signed, registered reviewer RESUME decision for RECOVERY."""
         if not decision_id or self.reviewer_roles.get(reviewer_identity) is None:
-            return False
+            return None
         agent = self.get_agent(agent_id)
         risk = RiskClass.PRIVILEGED if agent.quarantine_reason == "RESOURCE_LIMIT" else \
             (RiskClass.MODERATE if agent.quarantine_reason in (
@@ -532,16 +572,25 @@ class Harness:
             ) else RiskClass.SAFE)
         role = self.reviewer_roles[reviewer_identity]
         if role not in AUTHORIZED_ROLES.get(risk, set()):
-            return False
-        return any(
-            record.decision_id == decision_id
-            and record.agent_id == agent_id
-            and record.reviewer_identity == reviewer_identity
-            and record.role == role
-            and record.decision == ReviewerDecision.RESUME.value
-            and self.verify_record(record)
-            for record in self.decisions
-        )
+            return None
+        for record in reversed(self.decisions):
+            matches = (
+                record.decision_id == decision_id
+                and record.agent_id == agent_id
+                and record.reviewer_identity == reviewer_identity
+                and record.role == role
+                and record.decision == ReviewerDecision.RESUME.value
+                and self.verify_record(record)
+            )
+            if not matches:
+                continue
+            expires_epoch = _expiration_epoch(record.expiration)
+            if expires_epoch is None or expires_epoch <= time.time():
+                continue
+            if self._resume_capability_filter(agent, record.scope) is None:
+                continue
+            return record
+        return None
 
     # ---- Message envelope helpers ------------------------------------------
 
@@ -1096,17 +1145,33 @@ class Harness:
             return {"ok": False, "error": ErrorCode.AUTH_INVALID.value,
                     "detail": f"Role {role!r} not authorized for risk class {risk.value}"}
 
+        expiration_value = expiration or _future_expiration()
+        expires_epoch = _expiration_epoch(expiration_value)
+        if expires_epoch is None or expires_epoch <= time.time():
+            return {"ok": False, "error": ErrorCode.AUTH_INVALID.value,
+                    "detail": "Reviewer decision is expired or has an invalid expiration"}
+        if scope is not None and not isinstance(scope, dict):
+            return {"ok": False, "error": ErrorCode.AUTH_INVALID.value,
+                    "detail": "Reviewer decision scope must be an object"}
+        decision_scope = dict(scope or {})
+        resume_capabilities = None
+        if decision == ReviewerDecision.RESUME:
+            resume_capabilities = self._resume_capability_filter(agent, decision_scope)
+            if resume_capabilities is None:
+                return {"ok": False, "error": ErrorCode.AUTH_INVALID.value,
+                        "detail": "Resume scope must list only currently granted capabilities"}
+
         rec = ReviewerDecisionRecord(
             decision_id=f"review-{uuid.uuid4()}",
             agent_id=agent_id,
             reviewer_identity=reviewer_identity,
             role=role,
             decision=decision.value,
-            scope=scope or {},
+            scope=decision_scope,
             findings=findings,
             evidence_refs=evidence_refs or [],
             timestamp=time.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
-            expiration=expiration or time.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+            expiration=expiration_value,
         )
         rec_unstamped = {k: v for k, v in rec.__dict__.items() if k != "signature"}
         rec.signature = self.sign_record(rec_unstamped)
@@ -1120,7 +1185,9 @@ class Harness:
                 span = self.transition(agent_id, trigger, actor=reviewer_identity,
                                        message_id=rec.decision_id,
                                        reason_code="REVIEW_RESUME")
-                agent.reset_heartbeat_counter()
+                if span is not None:
+                    agent.effective_capabilities = resume_capabilities or []
+                    agent.reset_heartbeat_counter()
         elif decision == ReviewerDecision.RETRY:
             if (agent.state in (AgentState.QUARANTINED, AgentState.ESCALATED)
                     and self.perform_health_checks(agent_id)):
