@@ -23,9 +23,6 @@ from ._common import (
     MessageType,
     AgentState,
     Trigger,
-    LifecycleState,
-    EvidenceSpan,
-    TransitionResult,
     make_envelope,
     make_error_envelope,
     canonical_jcs,
@@ -38,8 +35,10 @@ from ._common import (
     RiskClass,
     TOOL_PROFILE_CI_STANDARD,
     TOOL_PROFILE_SANDBOXED,
+    MIN_ARTIFACT_RETENTION_DAYS,
+    DEFAULT_WALL_TIMEOUT_MS,
 )
-from .lifecycle import HarnessLifecycle
+from .lifecycle import HarnessLifecycle, LifecycleState, EvidenceSpan, TransitionResult
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -51,6 +50,29 @@ logger = logging.getLogger("athp-harness")
 
 CLOCK_SKEW_SECONDS = int(os.getenv("ATHP_CLOCK_SKEW_SECONDS", "30"))
 ARTIFACT_RETENTION_DAYS = int(os.getenv("ATHP_ARTIFACT_RETENTION_DAYS", str(MIN_ARTIFACT_RETENTION_DAYS)))
+ATHP_ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv("ATHP_ALLOWED_ORIGINS", "").split(",") if origin.strip()]
+HMAC_KEYS: dict[str, bytes] = {}
+_key_store = os.getenv("ATHP_HMAC_KEY_STORE")
+if _key_store:
+    with open(_key_store, "r", encoding="utf-8") as _key_file:
+        HMAC_KEYS = {key_id: base64.urlsafe_b64decode(secret.encode("ascii"))
+                     for key_id, secret in json.load(_key_file).items()}
+_configured_key = os.getenv("ATHP_HMAC_SECRET")
+if _configured_key:
+    HMAC_KEYS[os.getenv("ATHP_HMAC_KEY_ID", "agent.default/2026-09")] = _configured_key.encode("utf-8")
+RECOVERY_KEYS: dict[str, bytes] = {}
+_recovery_store = os.getenv("ATHP_RECOVERY_KEY_STORE")
+if _recovery_store:
+    with open(_recovery_store, "r", encoding="utf-8") as _recovery_file:
+        RECOVERY_KEYS = {key_id: base64.urlsafe_b64decode(secret.encode("ascii"))
+                         for key_id, secret in json.load(_recovery_file).items()}
+RECOVERY_REVIEWERS = {item.strip() for item in os.getenv("ATHP_RECOVERY_REVIEWERS", "").split(",") if item.strip()}
+try:
+    RECOVERY_REVIEWER_BY_KEY: dict[str, str] = json.loads(
+        os.getenv("ATHP_RECOVERY_REVIEWER_BY_KEY", "{}")
+    )
+except json.JSONDecodeError as exc:
+    raise RuntimeError("ATHP_RECOVERY_REVIEWER_BY_KEY must be valid JSON") from exc
 
 # In-memory storage for signed results (in production, use persistent storage)
 SIGNED_RESULTS: dict[str, dict] = {}  # task_id -> result
@@ -62,10 +84,10 @@ app = FastAPI(title="ATHP Harness", version="1.1.0")
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ATHP_ALLOWED_ORIGINS,
+    allow_credentials=bool(ATHP_ALLOWED_ORIGINS),
+    allow_methods=["POST", "GET"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # Global lifecycle instance
@@ -76,7 +98,7 @@ lifecycle = HarnessLifecycle()
 # Envelope helpers
 # ---------------------------------------------------------------------------
 
-def extract_envelope(request: Request) -> dict:
+async def extract_envelope(request: Request) -> dict:
     """Extract and validate the ATHP envelope from request body."""
     try:
         body = await request.json()
@@ -116,14 +138,9 @@ def validate_signature(envelope: dict) -> bool:
     env_no_sig = {k: v for k, v in envelope.items() if k != "signature"}
     canonical = canonical_jcs(env_no_sig)
     
-    # We need the secret key - in a real implementation this would be loaded from config
-    # For now, we check if key_id format is valid and signature is present
-    if not signature:
+    secret = HMAC_KEYS.get(key_id)
+    if not signature or not secret:
         return False
-    
-    # In a real implementation, look up the secret by key_id
-    # For this demo, we use a derived secret from key_id
-    secret = hashlib.sha256(key_id.encode("utf-8")).digest()
     
     return verify_signature(canonical, signature, key_id, secret)
 
@@ -376,9 +393,11 @@ def handle_register(envelope: dict, lifecycle: HarnessLifecycle) -> dict:
     
     # Sign the REGISTER_OK envelope
     # Remove signature for canonicalization, then compute
-    env_no_sig = {k: v for k, v register_ok_envelope.items() if k != "signature"}
+    env_no_sig = {k: v for k, v in register_ok_envelope.items() if k != "signature"}
     canonical = canonical_jcs(env_no_sig)
-    secret = hashlib.sha256(key_id.encode("utf-8")).diging
+    secret = HMAC_KEYS.get(key_id)
+    if secret is None:
+        raise RuntimeError(f"no server-side HMAC key configured for key_id {key_id!r}")
     signature = compute_signature(canonical, key_id, secret)
     register_ok_envelope["signature"] = signature
     
@@ -813,14 +832,32 @@ async def get_agent_state(agent_id: str) -> JSONResponse:
     state = lifecycle.get_agent_state(agent_id)
     if state is None:
         raise HTTPException(status_code=404, detail="Agent not found")
-    return JSONContent=state)
+    return JSONResponse(content=state)
 
 
 @app.post("/athp/recovery/{agent_id}")
 async def agent_recovery(agent_id: str, request: Request) -> JSONResponse:
-    """Handle recovery for a quarantined agent."""
+    """Recover only with a signed reviewer decision and passing health checks."""
     payload = await request.json()
-    reason = payload.get("reason", "Recovery decision")
+    key_id = payload.get("key_id", "")
+    signature = payload.get("signature", "")
+    secret = RECOVERY_KEYS.get(key_id)
+    signed_decision = {k: v for k, v in payload.items() if k != "signature"}
+    if not secret or not signature or not verify_signature(
+        canonical_jcs(signed_decision), signature, key_id, secret
+    ):
+        raise HTTPException(status_code=401, detail="Signed recovery decision required")
+    reviewer = signed_decision.get("reviewer", "")
+    if (not reviewer or reviewer not in RECOVERY_REVIEWERS
+            or RECOVERY_REVIEWER_BY_KEY.get(key_id) != reviewer):
+        raise HTTPException(status_code=403, detail="Authorized White/reviewer decision required")
+    reason = signed_decision.get("reason", "Recovery decision")
+    checks = signed_decision.get("health_checks", {})
+    required_checks = {"health", "security", "integrity"}
+    if not isinstance(checks, dict) or not required_checks <= checks.keys() or not all(
+        checks[name] is True for name in required_checks
+    ):
+        raise HTTPException(status_code=403, detail="All recovery health checks must pass")
     
     agent = lifecycle.agents.get(agent_id)
     if agent is None:
@@ -834,8 +871,8 @@ async def agent_recovery(agent_id: str, request: Request) -> JSONResponse:
     result = lifecycle.transition_agent(
         agent_id,
         Trigger.RECOVERY,
-        actor="reviewer",
-        message_id="",
+        actor=reviewer,
+        message_id=signed_decision.get("decision_id", ""),
         reason_code=ErrorCode.INTERNAL_ERROR,
     )
     
@@ -846,14 +883,14 @@ async def agent_recovery(agent_id: str, request: Request) -> JSONResponse:
         
         return JSONResponse(content={
             "athp_version": "1.1",
-            "message_id": envelope.get("message_id", ""),
+            "message_id": signed_decision.get("decision_id", ""),
             "timestamp": now_utc_iso(),
             "agent_id": agent_id,
             "message_type": MessageType.REGISTER_OK.value,  # or a custom type
             "payload": {"recovered": True, "reason": reason},
-            "trace_id": envelope.get("trace_id", ""),
-            "span_id": envelope.get("span_id", ""),
-            "key_id": envelope.get("key_id", ""),
+            "trace_id": signed_decision.get("trace_id", ""),
+            "span_id": signed_decision.get("span_id", ""),
+            "key_id": key_id,
             "signature": "",
         })
     
@@ -863,4 +900,5 @@ async def agent_recovery(agent_id: str, request: Request) -> JSONResponse:
 # Run the app if executed directly
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host=os.getenv("ATHP_BIND_HOST", "127.0.0.1"),
+                port=int(os.getenv("ATHP_BIND_PORT", "8000")))

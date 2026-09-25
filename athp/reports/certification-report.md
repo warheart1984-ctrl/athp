@@ -1,23 +1,23 @@
 # ATHP RFC-0042 Certification Report
 
 - Spec: RFC-0042 Agents Test Harness Protocol (draft v1.1)
-- Harness: athp.moon_base (build digest `e8a6e819c51773b7cc0a051c77398fb6a345b4990feee102c92fa44d69a890bb`)
+- Harness: athp.moon_base (build digest `afca6456fdbd1c2ce4584f7a68a6efaa9b302bcb62c3bdb79e30270737b91f13`)
 - Suite: `conformance.py`
 - Conformance level claimed: **3** (wire + lifecycle + secure runtime)
-- Generated: 2026-09-18T16:02:00.000Z
+- Generated: 2026-09-25T05:56:39.000Z
 - Python: 3.12.10 (cpython)
 - OS: win32
 - Runner isolation: simulated (none)
-- Aggregate manifest digest: `bd75f46db4349ad7ec54fe35786ffa6845a23eaff2d7fa4ee4876e3965736fe1`
+- Aggregate manifest digest: `d100be3016b39d49eb1ed024b189234b126250c08aa622b44ea7886f9631588e`
 
 ## Summary
 
 | Metric | Value |
 | --- | --- |
-| Total tests | 51 |
-| Passed | 51 |
+| Total tests | 55 |
+| Passed | 55 |
 | Failed | 0 |
-| MUST | 49/49 (100.0%) |
+| MUST | 53/53 (100.0%) |
 | SHOULD | 2/2 (100.0%) |
 
 ### Failures by severity
@@ -59,12 +59,12 @@
 | ATHP-L1-012 | MUST | MEDIUM | PASS | selected=1.0 hb_ack=True |
 | ATHP-L1-013 | MUST | MEDIUM | PASS | code=VERSION_UNSUPPORTED |
 | ATHP-L1-014 | MUST | MEDIUM | PASS | shape=True no_secret=True session=True |
-| ATHP-L1-015 | SHOULD | LOW | PASS | p50=0.0ms p95=15.0ms p99=16.0ms |
-### Level 2 - 23/23 passing
+| ATHP-L1-015 | SHOULD | LOW | PASS | p50=0.0ms p95=16.0ms p99=16.0ms |
+### Level 2 - 24/24 passing
 
 | Test ID | Req | Severity | Outcome | Detail |
 | --- | --- | --- | --- | --- |
-| ATHP-L2-001 | MUST | HIGH | PASS | span_id=dec-ccc5e50f-1f21-4f9a-bb45-536f64afde7b trigger=REGISTER_OK |
+| ATHP-L2-001 | MUST | HIGH | PASS | span_id=dec-d93b7ad2-8cce-41b3-a754-79828d83cf4e trigger=REGISTER_OK |
 | ATHP-L2-002 | MUST | HIGH | PASS | rejected-span-present=True |
 | ATHP-L2-003 | MUST | HIGH | PASS | status=SUCCEEDED states_seen=['EXECUTING', 'IDLE'] |
 | ATHP-L2-004 | MUST | CRITICAL | PASS | state=QUARANTINED error=SANDBOX_VIOLATION |
@@ -74,7 +74,7 @@
 | ATHP-L2-008 | MUST | HIGH | PASS | ok=True state=SHUTDOWN |
 | ATHP-L2-009 | MUST | HIGH | PASS | idle=True quarantined=True terminated=True |
 | ATHP-L2-010 | MUST | HIGH | PASS | init=INIT quar=QUARANTINED codes=STATE_INVALID/STATE_INVALID |
-| ATHP-L2-011 | MUST | HIGH | PASS | identical-cache=True type=REGISTER_OK |
+| ATHP-L2-011 | MUST | HIGH | PASS | bootstrap-revoked=AUTH_INVALID |
 | ATHP-L2-012 | MUST | HIGH | PASS | stored-replay=True status=SUCCEEDED |
 | ATHP-L2-013 | MUST | HIGH | PASS | code=DUPLICATE_CONFLICT |
 | ATHP-L2-014 | MUST | CRITICAL | PASS | code=STATE_INVALID state=QUARANTINED |
@@ -86,8 +86,9 @@
 | ATHP-L2-020 | MUST | MEDIUM | PASS | status=TIMED_OUT err=TASK_TIMEOUT state=IDLE |
 | ATHP-L2-021 | MUST | MEDIUM | PASS | status=TIMED_OUT state=QUARANTINED reason=TASK_TIMEOUT |
 | ATHP-L2-022 | MUST | HIGH | PASS | code=STATE_INVALID state=SHUTDOWN |
-| ATHP-L2-023 | SHOULD | LOW | PASS | p95=0.0ms p99=15.0ms |
-### Level 3 - 13/13 passing
+| ATHP-L2-023 | SHOULD | LOW | PASS | p95=0.0ms p99=16.0ms |
+| ATHP-L2-024 | MUST | HIGH | PASS | tampered persistence refused |
+### Level 3 - 16/16 passing
 
 | Test ID | Req | Severity | Outcome | Detail |
 | --- | --- | --- | --- | --- |
@@ -104,6 +105,9 @@
 | ATHP-L3-011 | MUST | HIGH | PASS | health-gate=rejected-unhealthy-resume unhealthy-state=QUARANTINED resumed=IDLE |
 | ATHP-L3-012 | MUST | HIGH | PASS | ok=True verified=True state=QUARANTINED span=None |
 | ATHP-L3-013 | MUST | HIGH | PASS | state=IDLE exposure-evidence-kept=True |
+| ATHP-L3-014 | MUST | HIGH | PASS | denied=SANDBOX_VIOLATION state=IDLE |
+| ATHP-HTTP-001 | MUST | HIGH | PASS | provisioned_key=True unknown_key=False |
+| ATHP-HTTP-002 | MUST | HIGH | PASS | unauthenticated recovery status=401 |
 
 ## Declared SLA
 

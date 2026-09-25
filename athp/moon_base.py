@@ -310,7 +310,8 @@ class Harness:
                  clock_skew_seconds: int = CLOCK_SKEW_SECONDS,
                  quarantine_on_timeout: bool = False,
                  executor: Optional[Callable[["Harness", dict], dict]] = None,
-                 policy_overrides: Optional[Dict[str, SandboxPolicy]] = None):
+                 policy_overrides: Optional[Dict[str, SandboxPolicy]] = None,
+                 reviewer_roles: Optional[Dict[str, str]] = None):
         self.agents: Dict[str, AgentContext] = {}
         self.seen_messages: Dict[str, dict] = {}          # dedup key -> stored response
         self.idempotency: Dict[str, dict] = {}            # task dedup key -> stored result
@@ -320,6 +321,7 @@ class Harness:
         self._master_secret: Optional[bytes] = hmac_secret
         self.evidence_log: List[EvidenceSpan] = []
         self.decisions: List[ReviewerDecisionRecord] = []
+        self.reviewer_roles = dict(reviewer_roles or {})
         self.persist_path = persist_path
         self.clock_skew_seconds = clock_skew_seconds
         self.quarantine_on_timeout = quarantine_on_timeout
@@ -330,6 +332,8 @@ class Harness:
         self.uid_counter = 0
         self._lock = threading.RLock()
 
+        if persist_path and not hmac_secret:
+            raise ValueError("persistence requires a server-side HMAC secret")
         if hmac_secret is not None:
             self.hmac_keys["agent.default/2026-09"] = hmac_secret
         if persist_path:
@@ -404,19 +408,36 @@ class Harness:
             if os.path.exists(path):
                 try:
                     with open(path, "r", encoding="utf-8") as f:
-                        store.update(json.load(f))
+                        wrapper = json.load(f)
+                    data = wrapper.get("data")
+                    signature = wrapper.get("hmac", "")
+                    expected = self._persistence_mac(data)
+                    if not isinstance(data, dict) or not hmac.compare_digest(signature, expected):
+                        raise ValueError("persistence HMAC mismatch")
+                    store.update(data)
                     logger.info("Loaded %d dedup records from %s", len(store), path)
                 except Exception as exc:  # pragma: no cover
-                    logger.warning("Could not load %s: %s", path, exc)
+                    raise RuntimeError(f"refusing corrupt or unsigned persistence file {path}") from exc
+
+    def _persistence_mac(self, data: dict) -> str:
+        if not self._master_secret:
+            raise RuntimeError("persistence signing key is unavailable")
+        encoded = json.dumps(data, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return base64.urlsafe_b64encode(
+            hmac.new(self._master_secret, encoded, hashlib.sha256).digest()
+        ).decode("ascii").rstrip("=")
+
+    def _write_signed_persistence(self, path: str, data: dict) -> None:
+        wrapper = {"data": data, "hmac": self._persistence_mac(data)}
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(wrapper, f, sort_keys=True, separators=(",", ":"))
 
     def _save_persistence(self) -> None:
         if not self.persist_path:
             return
         os.makedirs(self.persist_path, exist_ok=True)
-        with open(self._dedup_file("seen_messages.json"), "w", encoding="utf-8") as f:
-            json.dump(self.seen_messages, f)
-        with open(self._dedup_file("idempotency.json"), "w", encoding="utf-8") as f:
-            json.dump(self.idempotency, f)
+        self._write_signed_persistence(self._dedup_file("seen_messages.json"), self.seen_messages)
+        self._write_signed_persistence(self._dedup_file("idempotency.json"), self.idempotency)
         with open(self._dedup_file("evidence.jsonl"), "w", encoding="utf-8") as f:
             for span in self.evidence_log:
                 f.write(json.dumps(span.to_dict()) + "\n")
@@ -436,7 +457,7 @@ class Harness:
         return {
             "athp_version": ATHP_VERSION,
             "harness_build_digest": build_digest,
-            "agent_implementation": "athp.moon_base.Agent",
+            "agent_implementation": "athp.moon_base.Agent; HTTP gates: athp.server",
             "python": {"version": os.sys.version.split()[0], "implementation": os.sys.implementation.name},
             "os": {"name": os.name, "platform": os.sys.platform},
             "runner": {"isolation": "simulated", "mechanism": "none", "version": "1.0"},
@@ -589,11 +610,22 @@ class Harness:
 
         # 2) Replay protection first: an already-recorded message returns its
         #    stored outcome without re-validation (§4.4) and skips skew/signature.
+        agent_context = self.agents.get(agent_id)
+        if agent_context is not None and agent_context.session_id:
+            expected_key_id = f"{agent_id}/2026-09"
+            if (envelope.get("session_id") != agent_context.session_id
+                    or envelope.get("key_id") != expected_key_id):
+                return self._error(envelope, ErrorCode.AUTH_INVALID,
+                                   "Registered agent session/key binding mismatch")
         if agent_id and message_id:
             sess = envelope.get("session_id") or "sess"
             key = f"{agent_id}\u241f{sess}\u241f{message_id}"
             entry = self.seen_messages.get(key)
             if entry is not None:
+                if msg_type == MessageType.TASK_ACCEPT and agent_context is not None \
+                        and agent_context.state != AgentState.IDLE:
+                    return self._error(envelope, ErrorCode.STATE_INVALID,
+                                       "Agent state does not permit cached task replay")
                 if entry["request"] != self._message_fingerprint(envelope):
                     # Same dedup key, different content: conflicting duplicate (§12).
                     logger.info("Conflicting duplicate for %s", message_id)
@@ -792,6 +824,9 @@ class Harness:
         payload_fp = jcs_sha256(payload)
         stored = self.idempotency.get(dedup_key)
         if stored is not None:
+            if agent.state != AgentState.IDLE or not agent.session_id:
+                return self._error(envelope, ErrorCode.STATE_INVALID,
+                                   "Agent state does not permit idempotent task replay")
             if stored["request"] != payload_fp:
                 return self._error(envelope, ErrorCode.DUPLICATE_CONFLICT,
                                    "Same idempotency_key with conflicting task payload",
@@ -803,6 +838,13 @@ class Harness:
         if agent.state != AgentState.IDLE or not agent.session_id:
             return self._error(envelope, ErrorCode.STATE_INVALID,
                                f"Agent state is {agent.state.value}; only IDLE with a session may execute")
+
+        requested_profile = payload.get("sandbox_profile")
+        if requested_profile is not None and requested_profile != agent.tool_profile:
+            return self._error(
+                envelope, ErrorCode.SANDBOX_VIOLATION,
+                "Task sandbox_profile must match the registered tool_profile",
+            )
 
         # §13 tool grants must be within the effective capability set.
         granted_caps = self._resolve_grants(payload.get("tool_grants", []))
@@ -824,7 +866,18 @@ class Harness:
         started = time.monotonic()
         spec = dict(payload)
         try:
-            outcome = self.executor(self, spec)
+            # Apply the registered profile before invoking any executor, including
+            # custom executors that do not call the reference policy helper.
+            policy_code, policy_detail = self._enforce_policy(
+                spec, payload.get("tool_grants", []),
+                agent.effective_capabilities, agent.tool_profile,
+            )
+            if policy_code:
+                outcome = {"status": ResultStatus.QUARANTINED.value,
+                           "error_code": policy_code, "detail": policy_detail,
+                           "exit_code": 1}
+            else:
+                outcome = self.executor(self, spec)
         except Exception as exc:  # oracle / executor crash
             outcome = {"status": ResultStatus.FAILED.value,
                        "error_code": ErrorCode.INTERNAL_ERROR.value,
@@ -897,7 +950,7 @@ class Harness:
 
     def _default_execute(self, harness: "Harness", spec: dict) -> dict:
         """Simulated task execution with policy enforcement."""
-        profile = spec.get("sandbox_profile", "ci-standard")
+        profile = harness.get_agent(spec.get("agent_id", "")).tool_profile
         grants = spec.get("tool_grants", [])
         caps = harness.get_agent(spec.get("agent_id", "")).effective_capabilities
         code, detail = harness._enforce_policy(spec, grants, caps, profile)
@@ -985,6 +1038,12 @@ class Harness:
         """Authenticated reviewer decision (§16). Signed + append-only."""
         agent = self.get_agent(agent_id)
 
+        # The caller's role string is only a claim. Trust the server-side
+        # reviewer directory and refuse unknown identities or role mismatches.
+        if self.reviewer_roles.get(reviewer_identity) != role:
+            return {"ok": False, "error": ErrorCode.AUTH_INVALID.value,
+                    "detail": "Reviewer identity is not registered for the claimed role"}
+
         # Role authorization for the risk class of the triggered event.
         risk = RiskClass.PRIVILEGED if agent.quarantine_reason == "RESOURCE_LIMIT" else \
             (RiskClass.MODERATE if agent.quarantine_reason in ("SECRET_EXPOSURE", "SANDBOX_VIOLATION",
@@ -1018,7 +1077,8 @@ class Harness:
                                        reason_code="REVIEW_RESUME")
                 agent.reset_heartbeat_counter()
         elif decision == ReviewerDecision.RETRY:
-            if agent.state in (AgentState.QUARANTINED, AgentState.ESCALATED):
+            if (agent.state in (AgentState.QUARANTINED, AgentState.ESCALATED)
+                    and self.perform_health_checks(agent_id)):
                 span = self.transition(agent_id, "REVIEW_RETRY", actor=f"reviewer:{reviewer_identity}",
                                        reason_code="REVIEW_RETRY")
                 agent.reset_heartbeat_counter()
@@ -1116,7 +1176,7 @@ def _register_ok(agent: Agent, resp: dict) -> bool:
 
 
 def demo():
-    hmac_secret = b"athp-moon-base-shared-secret-2026"
+    hmac_secret = os.urandom(32)
     h = Harness(hmac_secret=hmac_secret)
     agent = Agent(agent_id="agent.example.builder-17", harness=h)
 
@@ -1157,7 +1217,7 @@ def demo():
 
 def quarantine_demo():
     logging.basicConfig(level=logging.WARNING)
-    h = Harness(hmac_secret=b"athp-moon-base-shared-secret-2026")
+    h = Harness(hmac_secret=os.urandom(32))
     agent = Agent(agent_id="quarantine.test-01", harness=h)
     print("=== Quarantine & Recovery Demo ===")
     agent.register()

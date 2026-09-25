@@ -60,22 +60,24 @@ class Trigger(str, Enum):
     QUARANTINE = "QUARANTINE"
     RECOVERY = "RECOVERY"
     REVIEW_RESUME = "REVIEW_RESUME"
-    review_escalation = "review_escalation"
-    review_termination = "review_termination"
+    REVIEW_ESCALATION = "REVIEW_ESCALATION"
+    REVIEW_TERMINATION = "REVIEW_TERMINATION"
     HARNESS_SHUTDOWN = "HARNESS_SHUTDOWN"
 
 
 # State transition table: (from_state, trigger) -> to_state
-TRANSITION_TABLE: dict[tuple[AgentState, Trigger], AgentState] = {
+TransitionTable = dict[tuple[AgentState, Trigger], AgentState]
+
+TRANSITION_TABLE: TransitionTable = {
     (AgentState.INIT, Trigger.REGISTER_OK): AgentState.IDLE,
     (AgentState.INIT, Trigger.REGISTER_REJECT): AgentState.REJECTED,
     (AgentState.IDLE, Trigger.TASK_ACCEPT): AgentState.EXECUTING,
     (AgentState.EXECUTING, Trigger.TASK_RESULT): AgentState.IDLE,
     (AgentState.EXECUTING, Trigger.QUARANTINE): AgentState.QUARANTINED,
     (AgentState.QUARANTINED, Trigger.RECOVERY): AgentState.IDLE,
-    (AgentState.QUARANTINED, Trigger.review_escalation): AgentState.ESCALATED,
-    (AgentState.ESCALATED, Trigger.review_resume): AgentState.IDLE,
-    (AgentState.ESCALATED, Trigger.review_termination): AgentState.SHUTDOWN,
+    (AgentState.QUARANTINED, Trigger.REVIEW_ESCALATION): AgentState.ESCALATED,
+    (AgentState.ESCALATED, Trigger.REVIEW_RESUME): AgentState.IDLE,
+    (AgentState.ESCALATED, Trigger.REVIEW_TERMINATION): AgentState.SHUTDOWN,
     (AgentState.IDLE, Trigger.HARNESS_SHUTDOWN): AgentState.SHUTDOWN,
     (AgentState.QUARANTINED, Trigger.HARNESS_SHUTDOWN): AgentState.SHUTDOWN,
     (AgentState.ESCALATED, Trigger.HARNESS_SHUTDOWN): AgentState.SHUTDOWN,

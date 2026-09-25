@@ -19,6 +19,7 @@ Emits a certification report (Markdown + JSON) evaluated against the §7 gates:
 """
 
 import hashlib
+import asyncio
 import json
 import os
 import sys
@@ -83,7 +84,12 @@ def _short() -> str:
 
 
 def _fresh(agent_id: Optional[str] = None, **hkw) -> Tuple[Harness, Agent]:
-    h = Harness(hmac_secret=b"athp-conformance-shared-secret-2026", **hkw)
+    hkw.setdefault("reviewer_roles", {
+        "alice@ci": "ci-operator",
+        "bob@sec": "security-lead",
+    })
+    hkw.setdefault("hmac_secret", os.urandom(32))
+    h = Harness(**hkw)
     a = Agent(agent_id=agent_id or f"agent.example.builder-{_short()}", harness=h)
     return h, a
 
@@ -423,8 +429,9 @@ def _L2_011() -> Tuple[bool, str]:
         "resource_limits": {"cpu_millis": 2000, "memory_mb": 4096}, "tool_profile": "ci-standard"})
     r1 = a.send_envelope(env)
     r2 = a.send_envelope(env)
-    return r2 == r1 and r2["message_type"] == MessageType.REGISTER_OK.value, \
-        f"identical-cache={r2 == r1} type={r2.get('message_type')}"
+    return r2["message_type"] == MessageType.ERROR.value and \
+        r2.get("payload", {}).get("code") == ErrorCode.AUTH_INVALID.value, \
+        f"bootstrap-revoked={r2.get('payload', {}).get('code')}"
 
 
 def _L2_012() -> Tuple[bool, str]:
@@ -439,14 +446,11 @@ def _L2_012() -> Tuple[bool, str]:
 
 def _L2_013() -> Tuple[bool, str]:
     h, a = _fresh()
-    env = a.build_envelope(MessageType.REGISTER, {
-        "supported_versions": ["1.0", "1.1"], "capabilities": ["patch", "tests", "readonly_repo"],
-        "resource_limits": {"cpu_millis": 2000, "memory_mb": 4096}, "tool_profile": "ci-standard"})
+    _register(h, a)
+    env = a.build_envelope(MessageType.TASK_ACCEPT, _task(a.agent_id))
     a.send_envelope(env)
     dup = dict(env)
-    payload = dict(dup["payload"])
-    payload["supported_versions"] = ["2.0"]  # conflicting content, same message_id
-    dup["payload"] = payload
+    dup["payload"] = {"changed": True}
     dup = h.sign_envelope(dup)
     r = h.handle_message(dup)
     return r["message_type"] == MessageType.ERROR.value and \
@@ -490,7 +494,8 @@ def _L2_016() -> Tuple[bool, str]:
 
 def _L2_017() -> Tuple[bool, str]:
     with tempfile.TemporaryDirectory() as td:
-        h1, a1 = _fresh(agent_id="agent.example.builder-17")
+        test_secret = os.urandom(32)
+        h1, a1 = _fresh(agent_id="agent.example.builder-17", hmac_secret=test_secret)
         h1.persist_path = td
         reg_env = a1.build_envelope(MessageType.REGISTER, {
             "supported_versions": ["1.0", "1.1"], "capabilities": ["patch", "tests", "readonly_repo"],
@@ -501,13 +506,32 @@ def _L2_017() -> Tuple[bool, str]:
         r_task = a1.send_envelope(t_env)
         a1.request_shutdown()
 
-        h2 = Harness(hmac_secret=b"athp-conformance-shared-secret-2026", persist_path=td)
+        h2 = Harness(hmac_secret=test_secret, persist_path=td)
         loaded_msg = len(h2.seen_messages) > 0 and len(h2.idempotency) > 0
         r_replay = h2.handle_message(reg_env)
         r_task_replay = h2.handle_message(t_env)
         same = r_replay["session_id"] == r1["session_id"] and \
             r_task_replay["payload"] == r_task["payload"]
         return loaded_msg and same, f"loaded-dedup={loaded_msg} replay-identical={same}"
+
+
+def _L2_024() -> Tuple[bool, str]:
+    with tempfile.TemporaryDirectory() as td:
+        h, a = _fresh(agent_id="agent.persistence-test")
+        h.persist_path = td
+        _register(h, a)
+        a.send(MessageType.TASK_ACCEPT, _task(a.agent_id))
+        path = os.path.join(td, "idempotency.json")
+        with open(path, "r", encoding="utf-8") as fh:
+            stored = json.load(fh)
+        stored["data"]["forged"] = {"result": {"status": "SUCCEEDED"}}
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(stored, fh)
+        try:
+            Harness(hmac_secret=os.urandom(32), persist_path=td)
+        except RuntimeError:
+            return True, "tampered persistence refused"
+        return False, "tampered persistence loaded"
 
 
 def _L2_018() -> Tuple[bool, str]:
@@ -707,7 +731,7 @@ def _L3_010() -> Tuple[bool, str]:
     _register(h, a)
     for _ in range(3):
         h.record_missed_heartbeat(a.agent_id)
-    out = h.reviewer_decision(a.agent_id, reviewer_identity="eve@ci", role="developer",
+    out = h.reviewer_decision(a.agent_id, reviewer_identity="alice@ci", role="security-lead",
                               decision=ReviewerDecision.RESUME, findings="x")
     return not out["ok"] and out.get("error") == ErrorCode.AUTH_INVALID.value and \
         h.get_agent(a.agent_id).state.value == AgentState.QUARANTINED.value, \
@@ -759,6 +783,54 @@ def _L3_013() -> Tuple[bool, str]:
     exposure_kept = any(s.reason_code == ErrorCode.SECRET_EXPOSURE.value for s in h.evidence_log)
     return st == AgentState.IDLE.value and exposure_kept, \
         f"state={st} exposure-evidence-kept={exposure_kept}"
+
+
+def _L3_014() -> Tuple[bool, str]:
+    h, a = _fresh()
+    _register(h, a, capabilities=["tests", "readonly_repo"], tool_profile="sandboxed")
+    result = a.send(MessageType.TASK_ACCEPT, _task(a.agent_id, sandbox_profile="ci-standard"))
+    return result.get("payload", {}).get("code") == ErrorCode.SANDBOX_VIOLATION.value \
+        and h.get_agent(a.agent_id).state == AgentState.IDLE, \
+        f"denied={result.get('payload', {}).get('code')} state={h.get_agent(a.agent_id).state.value}"
+
+
+def _HTTP_AUTH_001() -> Tuple[bool, str]:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+    from athp import server
+    old_keys = server.HMAC_KEYS
+    try:
+        server.HMAC_KEYS = {"agent.http-test": b"provisioned-test-key"}
+        unsigned = {"agent_id": "agent.http-test", "key_id": "agent.http-test",
+                    "message_type": "HEARTBEAT", "payload": {}, "signature": ""}
+        signed = dict(unsigned)
+        signed["signature"] = server.compute_signature(
+            server.canonical_jcs({k: v for k, v in unsigned.items() if k != "signature"}),
+            "agent.http-test", b"provisioned-test-key")
+        forged = dict(unsigned, key_id="agent.unknown")
+        forged["signature"] = server.compute_signature(
+            server.canonical_jcs({k: v for k, v in forged.items() if k != "signature"}),
+            "agent.unknown", b"agent.unknown")
+        ok = server.validate_signature(signed) and not server.validate_signature(forged)
+        return ok, f"provisioned_key={server.validate_signature(signed)} unknown_key={server.validate_signature(forged)}"
+    finally:
+        server.HMAC_KEYS = old_keys
+
+
+def _HTTP_AUTH_002() -> Tuple[bool, str]:
+    from fastapi import HTTPException
+    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+    from athp import server
+
+    class RequestFixture:
+        async def json(self):
+            return {"key_id": "", "signature": "", "reviewer": "attacker",
+                    "health_checks": {"health": True, "security": True, "integrity": True}}
+
+    try:
+        asyncio.run(server.agent_recovery("agent.fixture", RequestFixture()))
+    except HTTPException as exc:
+        return exc.status_code in (401, 403), f"unauthenticated recovery status={exc.status_code}"
+    return False, "unauthenticated recovery unexpectedly succeeded"
 
 
 # ---------------------------------------------------------------------------
@@ -820,12 +892,12 @@ def _build_suite() -> List[dict]:
              "shutdown while idle and while quarantined", "SHUTDOWN in both cases", _L2_009),
         case("ATHP-L2-010", 2, "HIGH", True, "Illegal transitions -> STATE_INVALID, no state change",
              "task while INIT and while QUARANTINED", "STATE_INVALID, states preserved", _L2_010),
-        case("ATHP-L2-011", 2, "HIGH", True, "Duplicate message_id returns cached outcome",
-             "identical REGISTER envelope sent twice", "identical stored REGISTER_OK", _L2_011),
+        case("ATHP-L2-011", 2, "HIGH", True, "Bootstrap key rejected after registration",
+             "identical REGISTER envelope sent twice", "AUTH_INVALID after session established", _L2_011),
         case("ATHP-L2-012", 2, "HIGH", True, "Duplicate task (idempotency_key) returns stored result",
              "identical TASK_ACCEPT sent twice", "same result, no re-execution", _L2_012),
-        case("ATHP-L2-013", 2, "HIGH", True, "Conflicting duplicate -> DUPLICATE_CONFLICT",
-             "same message_id, changed payload", "ERROR/DUPLICATE_CONFLICT", _L2_013),
+        case("ATHP-L2-013", 2, "HIGH", True, "Conflicting signed session duplicate -> DUPLICATE_CONFLICT",
+             "same session message_id, changed payload", "ERROR/DUPLICATE_CONFLICT", _L2_013),
         case("ATHP-L2-014", 2, "CRITICAL", True, "Quarantined agent MUST NOT receive tasks",
              "task while QUARANTINED", "STATE_INVALID; state preserved", _L2_014),
         case("ATHP-L2-015", 2, "HIGH", True, "Re-registration under active session is idempotent",
@@ -846,6 +918,8 @@ def _build_suite() -> List[dict]:
              "task after SHUTDOWN", "STATE_INVALID", _L2_022),
         case("ATHP-L2-023", 2, "LOW", False, "Heartbeat SLA p95 within budget",
              "60 sequential heartbeats", "p95<500ms", _L2_023),
+        case("ATHP-L2-024", 2, "HIGH", True, "Tampered persistence HMAC is refused",
+             "rewrite persisted idempotency data", "restart fails closed", _L2_024),
     ]
     level3 = [
         case("ATHP-L3-001", 3, "CRITICAL", True, "Sandbox escape attempt denied + quarantine",
@@ -874,6 +948,12 @@ def _build_suite() -> List[dict]:
              "DENY while quarantined", "ok, verified, no span, still QUARANTINED", _L3_012),
         case("ATHP-L3-013", 3, "HIGH", True, "Release-blocking events persist after resume",
              "secret exposure -> escalate -> resume", "IDLE but exposure evidence retained", _L3_013),
+        case("ATHP-L3-014", 3, "HIGH", True, "Task cannot override registered sandbox profile",
+             "sandboxed agent submits ci-standard profile", "SANDBOX_VIOLATION before execution", _L3_014),
+        case("ATHP-HTTP-001", 3, "HIGH", True, "HTTP message auth requires provisioned HMAC key",
+             "signed message with configured key plus unknown-key forgery", "known key accepted; unknown key rejected", _HTTP_AUTH_001),
+        case("ATHP-HTTP-002", 3, "HIGH", True, "HTTP recovery rejects unauthenticated caller",
+             "unsigned recovery request", "HTTP 401/403 before state transition", _HTTP_AUTH_002),
     ]
     return level1 + level2 + level3
 
@@ -884,13 +964,14 @@ def _build_suite() -> List[dict]:
 
 SECURITY_IDS = {"ATHP-L3-001", "ATHP-L3-002", "ATHP-L3-003", "ATHP-L3-004",
                 "ATHP-L3-005", "ATHP-L3-006", "ATHP-L3-007", "ATHP-L3-008",
-                "ATHP-L3-010", "ATHP-L3-011", "ATHP-L3-012", "ATHP-L3-013"}
+                "ATHP-L3-009", "ATHP-L3-010", "ATHP-L3-011", "ATHP-L3-012", "ATHP-L3-013", "ATHP-L3-014",
+                "ATHP-HTTP-001", "ATHP-HTTP-002"}
 
 SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
 
 
 def run_suite(harness_kwargs: Optional[dict] = None) -> dict:
-    ref = Harness(hmac_secret=b"athp-conformance-shared-secret-2026")
+    ref = Harness(hmac_secret=os.urandom(32))
     meta = ref.metadata()
     suite = _build_suite()
     results = []
@@ -926,12 +1007,16 @@ def evaluate_gates(results: List[dict]) -> dict:
 
     must_pct = 100.0 * sum(must_pass) / max(1, len(must))
     should_pct = 100.0 * sum(should_pass) / max(1, len(should))
+    sla_cases = {r["test_id"]: r for r in results
+                 if r["test_id"] in {"ATHP-L1-015", "ATHP-L2-023"}}
+    sla_declared = (set(sla_cases) == {"ATHP-L1-015", "ATHP-L2-023"}
+                    and all(r["outcome"] == "PASS" for r in sla_cases.values()))
     gates = {
         "zero_critical_high_failures": sev_fails["CRITICAL"] == 0 and sev_fails["HIGH"] == 0,
         "zero_security_policy_violations": len(security_fails) == 0,
         "must_100_percent": must_pct == 100.0,
         "should_ge_95_percent": should_pct >= 95.0,
-        "sla_declared": True,  # SLA tests are SHOULD; thresholds asserted in test fixtures
+        "sla_declared": sla_declared,
     }
     return {
         "total": total,

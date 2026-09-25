@@ -1,8 +1,8 @@
 {
   "metadata": {
     "athp_version": "1.1",
-    "harness_build_digest": "e8a6e819c51773b7cc0a051c77398fb6a345b4990feee102c92fa44d69a890bb",
-    "agent_implementation": "athp.moon_base.Agent",
+    "harness_build_digest": "afca6456fdbd1c2ce4584f7a68a6efaa9b302bcb62c3bdb79e30270737b91f13",
+    "agent_implementation": "athp.moon_base.Agent; HTTP gates: athp.server",
     "python": {
       "version": "3.12.10",
       "implementation": "cpython"
@@ -20,18 +20,18 @@
     "heartbeat_missed_threshold": 3,
     "retention_days": 90,
     "seed": "none",
-    "timestamp": "2026-09-18T16:02:00.000Z"
+    "timestamp": "2026-09-25T05:56:39.000Z"
   },
   "stats": {
-    "total": 51,
+    "total": 55,
     "by_outcome": {
-      "PASS": 51,
+      "PASS": 55,
       "FAIL": 0,
       "ERROR": 0
     },
     "severity_counts": {
       "CRITICAL": 8,
-      "HIGH": 28,
+      "HIGH": 32,
       "MEDIUM": 12,
       "LOW": 3
     },
@@ -43,8 +43,8 @@
     },
     "security_failures": [],
     "must": {
-      "count": 49,
-      "passed": 49,
+      "count": 53,
+      "passed": 53,
       "pass_pct": 100.0
     },
     "should": {
@@ -60,7 +60,7 @@
       "sla_declared": true
     }
   },
-  "manifest_digest": "bd75f46db4349ad7ec54fe35786ffa6845a23eaff2d7fa4ee4876e3965736fe1",
+  "manifest_digest": "d100be3016b39d49eb1ed024b189234b126250c08aa622b44ea7886f9631588e",
   "results": [
     {
       "test_id": "ATHP-L1-001",
@@ -73,7 +73,7 @@
       "outcome": "PASS",
       "detail": "REGISTER_OK version=1.1",
       "duration_ms": 15.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "9c7e6e70fc8d86ab716bbd33cf2bbf77631b31a4415f9d55adc16f839becf291"
     },
     {
@@ -87,7 +87,7 @@
       "outcome": "PASS",
       "detail": "code=SCHEMA_INVALID",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "ae1ee0b42f9f0eef56aac7afe96421895e6d193be438759061030aa3b015a8fc"
     },
     {
@@ -101,7 +101,7 @@
       "outcome": "PASS",
       "detail": "code=SCHEMA_INVALID",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "51e1f466aa482f88337d6f725d7fc202585c663b9d0515db05b5f2cb3099510e"
     },
     {
@@ -115,7 +115,7 @@
       "outcome": "PASS",
       "detail": "accepted-with-extra=REGISTER_OK",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "cc8e4bd6984a6927d6fa3aa071ba09a946eded29063f281cd6041f057700a4d9"
     },
     {
@@ -128,8 +128,8 @@
       "oracle": "verify_signature True for both",
       "outcome": "PASS",
       "detail": "REGISTER_OK sig=True heartbeat sig=True",
-      "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "duration_ms": 16.0,
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "c2bf9e4be1a3a9f6ca2fd846d573475df7b60828a32b6fd76cc3f93e12f98af0"
     },
     {
@@ -143,7 +143,7 @@
       "outcome": "PASS",
       "detail": "code=AUTH_INVALID",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "6522301d3126aa90c9e05c821e83b1a839cf984360636a46e4f1ba13d6489f5e"
     },
     {
@@ -157,7 +157,7 @@
       "outcome": "PASS",
       "detail": "stable=True arrays=True no-space=True raw-utf8=True",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "7f583fca376e0777e3b2827e9398a56d14e85bd01160ddc1f0e9eb6ff9e7e97b"
     },
     {
@@ -171,7 +171,7 @@
       "outcome": "PASS",
       "detail": "code=AUTH_INVALID",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "31e068f3140410a2ab55eba03785cbb0398243ef98252f74039de4fa7470672b"
     },
     {
@@ -185,7 +185,7 @@
       "outcome": "PASS",
       "detail": "code=AUTH_REPLAY",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "1f905966127f53eb5a9204d670e41ccb1bc0277c1b5b33e4bd2dc2babfba216d"
     },
     {
@@ -199,7 +199,7 @@
       "outcome": "PASS",
       "detail": "selected=1.1",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "d93107d41e1ec9b632d736a910e2a812af6e2a51d7540d7eec92bb20412b6b73"
     },
     {
@@ -213,7 +213,7 @@
       "outcome": "PASS",
       "detail": "code=VERSION_UNSUPPORTED state=REJECTED",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "e03470ea3889943c9ac5fa0483849edeb4d60f411a3a4db5b81bb1549e483bb9"
     },
     {
@@ -226,8 +226,8 @@
       "oracle": "selected=1.0, session at 1.0",
       "outcome": "PASS",
       "detail": "selected=1.0 hb_ack=True",
-      "duration_ms": 16.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "duration_ms": 0.0,
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "f83a2cf681e39ddf20869a9779804f92e7e9d451af6c6efceacf2d401fb6206c"
     },
     {
@@ -241,7 +241,7 @@
       "outcome": "PASS",
       "detail": "code=VERSION_UNSUPPORTED",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "05ab9b7aec2d346d27ece9afba355e74dec015a5f7ba59ada016bf313ea354a9"
     },
     {
@@ -255,7 +255,7 @@
       "outcome": "PASS",
       "detail": "shape=True no_secret=True session=True",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "44930391a9ee5f82ea9f06e8c8076e377456f105a882528e8102f5338c28490f"
     },
     {
@@ -267,9 +267,9 @@
       "fixture": "60 fresh registration cycles",
       "oracle": "p50<500ms p95<1000ms p99<2000ms",
       "outcome": "PASS",
-      "detail": "p50=0.0ms p95=15.0ms p99=16.0ms",
-      "duration_ms": 62.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "detail": "p50=0.0ms p95=16.0ms p99=16.0ms",
+      "duration_ms": 78.0,
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "f866e54714e12100e253fed70efdb913b7085a8a445ca954dde485346e91d33b"
     },
     {
@@ -281,9 +281,9 @@
       "fixture": "fresh agent registers",
       "oracle": "span INIT->IDLE trigger REGISTER_OK",
       "outcome": "PASS",
-      "detail": "span_id=dec-ccc5e50f-1f21-4f9a-bb45-536f64afde7b trigger=REGISTER_OK",
+      "detail": "span_id=dec-d93b7ad2-8cce-41b3-a754-79828d83cf4e trigger=REGISTER_OK",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "ba73019e2c24cf8c0f88bd1aa620a24698fd9db162e5cb5f7d98fa3f4279f41d"
     },
     {
@@ -297,7 +297,7 @@
       "outcome": "PASS",
       "detail": "rejected-span-present=True",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "0620ac9b00114b6a9987a0e44d3afd352f3ecc769427aa30f43fdf0d9aa9c08b"
     },
     {
@@ -311,7 +311,7 @@
       "outcome": "PASS",
       "detail": "status=SUCCEEDED states_seen=['EXECUTING', 'IDLE']",
       "duration_ms": 16.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "343da3171c5bf822f249365da0ff45a09e4a1ab023a4853f28e7b66a829c54c2"
     },
     {
@@ -325,7 +325,7 @@
       "outcome": "PASS",
       "detail": "state=QUARANTINED error=SANDBOX_VIOLATION",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "673aa76342a4c13d56a5b45a33509e70a1b145e3484eece9b600fe27afd7ed36"
     },
     {
@@ -339,7 +339,7 @@
       "outcome": "PASS",
       "detail": "ok=True verified=True state=IDLE",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "78d1ecedcf9fde5d57542ce4f6922e823a6312f79270d3da4f7aedaca1c017cc"
     },
     {
@@ -353,7 +353,7 @@
       "outcome": "PASS",
       "detail": "error=SECRET_EXPOSURE escalated=ESCALATED",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "189fec340890614249346509293a11dcd5a686f03fb6b0624f730cb6d8e9a244"
     },
     {
@@ -366,8 +366,8 @@
       "oracle": "state IDLE",
       "outcome": "PASS",
       "detail": "ok=True state=IDLE",
-      "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "duration_ms": 15.0,
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "28c6f22bdeae11162af7e35197daa513bfb030318cbc78ec4298a7e8f7a60350"
     },
     {
@@ -381,7 +381,7 @@
       "outcome": "PASS",
       "detail": "ok=True state=SHUTDOWN",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "38fe09803510117936e6c631efeacaa0dc62bd6edc5da3c3b86a306afc9ec8e5"
     },
     {
@@ -395,7 +395,7 @@
       "outcome": "PASS",
       "detail": "idle=True quarantined=True terminated=True",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "169504d5d4970be7eaeb25b2f2520e2a21efc8d830bc051b260ab13336f307c9"
     },
     {
@@ -408,8 +408,8 @@
       "oracle": "STATE_INVALID, states preserved",
       "outcome": "PASS",
       "detail": "init=INIT quar=QUARANTINED codes=STATE_INVALID/STATE_INVALID",
-      "duration_ms": 16.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "duration_ms": 0.0,
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "4ea0ffd5f59b21307de9d8b2e48a99ed5f769914d4185065d8514135fce862b3"
     },
     {
@@ -417,14 +417,14 @@
       "level": 2,
       "severity": "HIGH",
       "requirement": "MUST",
-      "title": "Duplicate message_id returns cached outcome",
+      "title": "Bootstrap key rejected after registration",
       "fixture": "identical REGISTER envelope sent twice",
-      "oracle": "identical stored REGISTER_OK",
+      "oracle": "AUTH_INVALID after session established",
       "outcome": "PASS",
-      "detail": "identical-cache=True type=REGISTER_OK",
+      "detail": "bootstrap-revoked=AUTH_INVALID",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
-      "artifact_digest": "9a7e30ee1db615234a80ef78dfac29dc614aa6b4825a90dc7ea98e02b5767573"
+      "timestamp": "2026-09-25T05:56:39.000Z",
+      "artifact_digest": "741b99eff4afd5625fa7d9c7f1510e4bb25043fe56f44b6b6bf7dba34ed53761"
     },
     {
       "test_id": "ATHP-L2-012",
@@ -436,8 +436,8 @@
       "oracle": "same result, no re-execution",
       "outcome": "PASS",
       "detail": "stored-replay=True status=SUCCEEDED",
-      "duration_ms": 15.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "duration_ms": 16.0,
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "3d166abfcdf9c5e20d60c9c844e20cd802e1be99af68c6ea99ce91709205fcd8"
     },
     {
@@ -445,14 +445,14 @@
       "level": 2,
       "severity": "HIGH",
       "requirement": "MUST",
-      "title": "Conflicting duplicate -> DUPLICATE_CONFLICT",
-      "fixture": "same message_id, changed payload",
+      "title": "Conflicting signed session duplicate -> DUPLICATE_CONFLICT",
+      "fixture": "same session message_id, changed payload",
       "oracle": "ERROR/DUPLICATE_CONFLICT",
       "outcome": "PASS",
       "detail": "code=DUPLICATE_CONFLICT",
-      "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
-      "artifact_digest": "c0c80d2262ffdebd670252d25ca736ebcaba3cbd30bb194bd88c04a6d159f817"
+      "duration_ms": 15.0,
+      "timestamp": "2026-09-25T05:56:39.000Z",
+      "artifact_digest": "61604d2d22611d077fedb644d004b1dd1f48ba5fa2363afb6f26db4c0f08bb1c"
     },
     {
       "test_id": "ATHP-L2-014",
@@ -465,7 +465,7 @@
       "outcome": "PASS",
       "detail": "code=STATE_INVALID state=QUARANTINED",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "8102b4a975b55a1cd306bb87b8f217c390bc488013d60267a617cd976d060cfe"
     },
     {
@@ -479,7 +479,7 @@
       "outcome": "PASS",
       "detail": "same-session=True stored=1",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "bec27e2cf8866a7519b16b4cb9536ea647e417224bd94a7eba7b946bb4eb4bb0"
     },
     {
@@ -493,7 +493,7 @@
       "outcome": "PASS",
       "detail": "code=STATE_INVALID state=QUARANTINED",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "6a25f3efa6970420ddee59f6268e9781e8a2e0424b1e2cf159a5e9ac66580ff1"
     },
     {
@@ -507,7 +507,7 @@
       "outcome": "PASS",
       "detail": "loaded-dedup=True replay-identical=True",
       "duration_ms": 63.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "84ecc565243a3d6b245eb8437d969807d45df8bf1ca5666ad050aafcae0d1bb6"
     },
     {
@@ -520,8 +520,8 @@
       "oracle": "all 9 fields; digest-stable across dump/reload",
       "outcome": "PASS",
       "detail": "fields=True stable=True spans=3",
-      "duration_ms": 15.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "duration_ms": 16.0,
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "ee72a6665b01aba0ae35f8aca3a07e7e05fdfc407c1713e48fbf0cd14033917c"
     },
     {
@@ -535,7 +535,7 @@
       "outcome": "PASS",
       "detail": "state=QUARANTINED spans=1 trigger=HEARTBEAT_FAILURE",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "02aaa8a23a651701372e2eced6fe36f989a1449af782d664cb2ab38332a1bf74"
     },
     {
@@ -548,8 +548,8 @@
       "oracle": "TIMED_OUT/TASK_TIMEOUT; state IDLE",
       "outcome": "PASS",
       "detail": "status=TIMED_OUT err=TASK_TIMEOUT state=IDLE",
-      "duration_ms": 47.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "duration_ms": 62.0,
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "70aaf5fee78861eb825978641c0156b05f93feac35fe636732c0ce43b28888c0"
     },
     {
@@ -563,7 +563,7 @@
       "outcome": "PASS",
       "detail": "status=TIMED_OUT state=QUARANTINED reason=TASK_TIMEOUT",
       "duration_ms": 47.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "c6ab9f1acc715f14ad9ac60cb7a8b122e785a65d57b96634c6022090df4d7f8f"
     },
     {
@@ -576,8 +576,8 @@
       "oracle": "STATE_INVALID",
       "outcome": "PASS",
       "detail": "code=STATE_INVALID state=SHUTDOWN",
-      "duration_ms": 16.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "duration_ms": 0.0,
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "9627686a633a56eb90505600fe95e9708c819487b3bd58d2ce87e05337b70045"
     },
     {
@@ -589,10 +589,24 @@
       "fixture": "60 sequential heartbeats",
       "oracle": "p95<500ms",
       "outcome": "PASS",
-      "detail": "p95=0.0ms p99=15.0ms",
-      "duration_ms": 15.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "detail": "p95=0.0ms p99=16.0ms",
+      "duration_ms": 31.0,
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "18c8d14ceea4646f7a771b65293bf91719a241b923dcd3329e1bf985146c2348"
+    },
+    {
+      "test_id": "ATHP-L2-024",
+      "level": 2,
+      "severity": "HIGH",
+      "requirement": "MUST",
+      "title": "Tampered persistence HMAC is refused",
+      "fixture": "rewrite persisted idempotency data",
+      "oracle": "restart fails closed",
+      "outcome": "PASS",
+      "detail": "tampered persistence refused",
+      "duration_ms": 63.0,
+      "timestamp": "2026-09-25T05:56:39.000Z",
+      "artifact_digest": "83861399430a99fafdc8af9b3eab40544e1a3d2cd0e77fd0dab1c77982ef938f"
     },
     {
       "test_id": "ATHP-L3-001",
@@ -604,8 +618,8 @@
       "oracle": "SANDBOX_VIOLATION; QUARANTINED",
       "outcome": "PASS",
       "detail": "err=SANDBOX_VIOLATION state=QUARANTINED",
-      "duration_ms": 16.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "duration_ms": 0.0,
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "a09a18c1769321466b9163788d368f767918ddbd048c78ea669aa1b265805d47"
     },
     {
@@ -619,7 +633,7 @@
       "outcome": "PASS",
       "detail": "err=EGRESS_DENIED state=QUARANTINED",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "4e65439ccc185c3c4b0e9620b991b0c517a1bb44b195e9096e2965955bfbb801"
     },
     {
@@ -633,7 +647,7 @@
       "outcome": "PASS",
       "detail": "err=SECRET_EXPOSURE state=QUARANTINED",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "32ed5ca6f335a2a38ac3a706cd22e7ae8f00dd268bf8656d72bf00c1ac4eb57b"
     },
     {
@@ -647,7 +661,7 @@
       "outcome": "PASS",
       "detail": "err=SANDBOX_VIOLATION state=QUARANTINED",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "20c4be65cd9c7d6d580c111be2f7e9ec277ad3a14587c5fb513eccd6b7a1b6c0"
     },
     {
@@ -660,8 +674,8 @@
       "oracle": "SANDBOX_VIOLATION; no execution",
       "outcome": "PASS",
       "detail": "code=SANDBOX_VIOLATION state=IDLE (no execution)",
-      "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "duration_ms": 15.0,
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "3e140ea25288e6cf2ff8b96fe20a061408b20e7b86a07d03a2932613648c59fe"
     },
     {
@@ -675,7 +689,7 @@
       "outcome": "PASS",
       "detail": "code=SCHEMA_INVALID state=REJECTED",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "2d28b1651b3bd1963d10aad13306cbab0787e7f6f7632a5d7a17c3609b9d63e9"
     },
     {
@@ -689,7 +703,7 @@
       "outcome": "PASS",
       "detail": "caps=['patch', 'tests', 'readonly_repo'] second=REGISTER_OK no-escalation=True",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "f85c5b251ed9aadc67f56243cf7fa49656e6cd57d35cc956ee4a36eea1066e6f"
     },
     {
@@ -702,8 +716,8 @@
       "oracle": "RESOURCE_LIMIT; QUARANTINED",
       "outcome": "PASS",
       "detail": "err=RESOURCE_LIMIT state=QUARANTINED",
-      "duration_ms": 16.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "duration_ms": 0.0,
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "93028a78522a90418682477eebd7212b7e4ab9f08800350e381c0aac91f84bc7"
     },
     {
@@ -716,8 +730,8 @@
       "oracle": "sha256 equals recomputed digest",
       "outcome": "PASS",
       "detail": "artifacts-verified=True",
-      "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "duration_ms": 16.0,
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "f9922d1bd83e63d10e9f9d2a5a85d07b3ca194a1c11f23a948d838d423d2e248"
     },
     {
@@ -731,7 +745,7 @@
       "outcome": "PASS",
       "detail": "ok=False err=AUTH_INVALID state=QUARANTINED",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "8188311556629116221a777bf16ef11ddc8aea4ca49847a2ae9371e9c39e34a7"
     },
     {
@@ -744,8 +758,8 @@
       "oracle": "unhealthy denied; healthy resumed",
       "outcome": "PASS",
       "detail": "health-gate=rejected-unhealthy-resume unhealthy-state=QUARANTINED resumed=IDLE",
-      "duration_ms": 15.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "duration_ms": 0.0,
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "a22b495e09dcfe39c914fec304590c2ba439691622fe5369f2dde76dc9c9efda"
     },
     {
@@ -759,7 +773,7 @@
       "outcome": "PASS",
       "detail": "ok=True verified=True state=QUARANTINED span=None",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "cd602b903b2e32b3d1b1af154e38b8af60c60ea286455cf1fe4d4c1303989971"
     },
     {
@@ -773,8 +787,50 @@
       "outcome": "PASS",
       "detail": "state=IDLE exposure-evidence-kept=True",
       "duration_ms": 0.0,
-      "timestamp": "2026-09-18T16:02:00.000Z",
+      "timestamp": "2026-09-25T05:56:39.000Z",
       "artifact_digest": "05399f27acb1c92176ced95ff7e37f96df3fb8dffc4fbfd323e083a719a628d3"
+    },
+    {
+      "test_id": "ATHP-L3-014",
+      "level": 3,
+      "severity": "HIGH",
+      "requirement": "MUST",
+      "title": "Task cannot override registered sandbox profile",
+      "fixture": "sandboxed agent submits ci-standard profile",
+      "oracle": "SANDBOX_VIOLATION before execution",
+      "outcome": "PASS",
+      "detail": "denied=SANDBOX_VIOLATION state=IDLE",
+      "duration_ms": 0.0,
+      "timestamp": "2026-09-25T05:56:39.000Z",
+      "artifact_digest": "cfd0c6c04b671480895d1c88ace76aa8d105a12b07e5cbd8c9c9c549a404a217"
+    },
+    {
+      "test_id": "ATHP-HTTP-001",
+      "level": 3,
+      "severity": "HIGH",
+      "requirement": "MUST",
+      "title": "HTTP message auth requires provisioned HMAC key",
+      "fixture": "signed message with configured key plus unknown-key forgery",
+      "oracle": "known key accepted; unknown key rejected",
+      "outcome": "PASS",
+      "detail": "provisioned_key=True unknown_key=False",
+      "duration_ms": 703.0,
+      "timestamp": "2026-09-25T05:56:40.000Z",
+      "artifact_digest": "bd44b5f504f3a293a123430b8eb3de3beeb31235029a4d0098333f5b948f2837"
+    },
+    {
+      "test_id": "ATHP-HTTP-002",
+      "level": 3,
+      "severity": "HIGH",
+      "requirement": "MUST",
+      "title": "HTTP recovery rejects unauthenticated caller",
+      "fixture": "unsigned recovery request",
+      "oracle": "HTTP 401/403 before state transition",
+      "outcome": "PASS",
+      "detail": "unauthenticated recovery status=401",
+      "duration_ms": 0.0,
+      "timestamp": "2026-09-25T05:56:40.000Z",
+      "artifact_digest": "a49cd7563ae7cc35849bdf5ba770c7346091bb59c874e2fe25f38becc93b7658"
     }
   ]
 }
