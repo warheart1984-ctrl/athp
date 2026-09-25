@@ -1,23 +1,23 @@
 # ATHP RFC-0042 Certification Report
 
 - Spec: RFC-0042 Agents Test Harness Protocol (draft v1.1)
-- Harness: athp.moon_base (build digest `663b1a49270a3f3557e4d8940c9926b946d6bbf4492b628445c1fbcc80cdf9c2`)
+- Harness: athp.moon_base (build digest `f4f7b79c4dfa9277cd49f5bec42cfabd3a973d8fef24d99c4d06fd5f86e8aea2`)
 - Suite: `conformance.py`
 - Conformance level claimed: **3** (wire + lifecycle + secure runtime)
-- Generated: 2026-09-25T09:49:51.000Z
+- Generated: 2026-09-25T09:50:18.000Z
 - Python: 3.12.10 (cpython)
 - OS: win32
 - Runner isolation: simulated (none)
-- Aggregate manifest digest: `3b6129c2404e33a1b35889923c623d8b2127b752362daa23d26ac3ec30b6879a`
+- Aggregate manifest digest: `ae45b6d4ad9a63b39b49481d3071d850eb65d9b50fb2a1cbe3322e6b2438b27e`
 
 ## Summary
 
 | Metric | Value |
 | --- | --- |
-| Total tests | 56 |
-| Passed | 56 |
+| Total tests | 57 |
+| Passed | 57 |
 | Failed | 0 |
-| MUST | 54/54 (100.0%) |
+| MUST | 55/55 (100.0%) |
 | SHOULD | 2/2 (100.0%) |
 
 ### Failures by severity
@@ -60,11 +60,11 @@
 | ATHP-L1-013 | MUST | MEDIUM | PASS | code=VERSION_UNSUPPORTED |
 | ATHP-L1-014 | MUST | MEDIUM | PASS | shape=True no_secret=True session=True |
 | ATHP-L1-015 | SHOULD | LOW | PASS | p50=0.0ms p95=16.0ms p99=16.0ms |
-### Level 2 - 25/25 passing
+### Level 2 - 26/26 passing
 
 | Test ID | Req | Severity | Outcome | Detail |
 | --- | --- | --- | --- | --- |
-| ATHP-L2-001 | MUST | HIGH | PASS | span_id=dec-d6a244b8-f6ed-4914-9a07-108014d13bdc trigger=REGISTER_OK |
+| ATHP-L2-001 | MUST | HIGH | PASS | span_id=dec-d31e76c9-6642-4b2a-b1d9-764af0fdadd0 trigger=REGISTER_OK |
 | ATHP-L2-002 | MUST | HIGH | PASS | rejected-span-present=True |
 | ATHP-L2-003 | MUST | HIGH | PASS | status=SUCCEEDED states_seen=['EXECUTING', 'IDLE'] |
 | ATHP-L2-004 | MUST | CRITICAL | PASS | state=QUARANTINED error=SANDBOX_VIOLATION |
@@ -89,6 +89,7 @@
 | ATHP-L2-023 | SHOULD | LOW | PASS | p95=0.0ms p99=16.0ms |
 | ATHP-L2-024 | MUST | HIGH | PASS | tampered persistence refused |
 | ATHP-L2-025 | MUST | HIGH | PASS | forged-denied=True unhealthy-denied=True state-unhealthy=QUARANTINED recovered=True state-healthy=IDLE |
+| ATHP-L2-026 | MUST | HIGH | PASS | expired-denied=True expired-unrecorded=True scope-expansion-denied=True narrowed=True direct-review-resume-denied=True |
 ### Level 3 - 16/16 passing
 
 | Test ID | Req | Severity | Outcome | Detail |
