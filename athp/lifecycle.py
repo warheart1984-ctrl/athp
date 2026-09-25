@@ -9,7 +9,7 @@ from ._common import (
     AgentState,
     ErrorCode,
     Trigger,
-    TransitionTable,
+    TRANSITION_TABLE,
     now_utc_iso,
     now_utc_timestamp,
     ATHPVersion,

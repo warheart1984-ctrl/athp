@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 from typing import Any, Iterable, Optional
 
 from .moon_base import Agent as CoreAgent, Harness
@@ -10,8 +11,9 @@ from .moon_base import Agent as CoreAgent, Harness
 class Agent:
     """Small ergonomic wrapper over the certified reference Agent."""
 
-    def __init__(self, agent_id: str, key_id: str = "agent.default/2026-09",
-                 secret: bytes = b"athp-moon-base-shared-secret-2026"):
+    def __init__(self, agent_id: str, key_id: str, secret: bytes):
+        if not key_id or not secret:
+            raise ValueError("an explicit provisioned key_id and secret are required")
         self.agent_id = agent_id
         self.key_id = key_id
         self.secret = secret
@@ -20,9 +22,9 @@ class Agent:
 
     def register(self, harness: Harness, capabilities: Optional[list[str]] = None) -> dict:
         """Register and negotiate a session with a harness."""
-        if harness._master_secret is None:
-            harness._master_secret = self.secret
-            harness.hmac_keys[self.key_id] = self.secret
+        provisioned = harness.hmac_keys.get(self.key_id)
+        if provisioned is None or not hmac.compare_digest(provisioned, self.secret):
+            raise RuntimeError("harness has not provisioned this agent key_id")
         self._core = CoreAgent(self.agent_id, harness)
         self._core.key_id = self.key_id
         self.last_response = self._core.register(capabilities=capabilities)
@@ -52,4 +54,3 @@ class Agent:
             raise RuntimeError("register() must be called before shutdown()")
         self.last_response = self._core.request_shutdown(reason)
         return self.last_response
-
