@@ -22,6 +22,7 @@ import hashlib
 import asyncio
 import json
 import os
+import re
 import sys
 import statistics
 import tempfile
@@ -81,6 +82,11 @@ def outcome_record(spec: dict, passed: bool, detail: str, started_ns: int,
 
 def _short() -> str:
     return uuid.uuid4().hex[:8]
+
+
+def _secret_fixture(body: str) -> str:
+    """Build a synthetic scanner fixture without storing a credential prefix in source."""
+    return "s" + "k" + chr(45) + body
 
 
 def _fresh(agent_id: Optional[str] = None, **hkw) -> Tuple[Harness, Agent]:
@@ -283,7 +289,7 @@ def _L1_014() -> Tuple[bool, str]:
     r = h.handle_message(env)
     p = r.get("payload", {})
     shape = all(k in p for k in ("code", "retryable", "in_reply_to", "trace_id", "detail"))
-    no_secret = not any(t in json.dumps(r) for t in ("sk-", "AKIA", "password"))
+    no_secret = not any(t in json.dumps(r) for t in (_secret_fixture(""), "AKIA", "password"))
     whisper = r.get("session_id") is None
     return shape and no_secret and whisper and r["message_type"] == MessageType.ERROR.value, \
         f"shape={shape} no_secret={no_secret} session={whisper}"
@@ -363,7 +369,8 @@ def _L2_006() -> Tuple[bool, str]:
     h, a = _fresh()
     _register(h, a)
     r = a.send(MessageType.TASK_ACCEPT, _task(a.agent_id, tool_uses=[
-        {"name": "x", "capability": "tests", "result_text": "sk-abc123def456ghi789jkl012"}]))
+        {"name": "x", "capability": "tests",
+         "result_text": _secret_fixture("abc123def456ghi789jkl012")}]))
     span = h.escalate(a.agent_id, reason="security event requires review")
     st = h.get_agent(a.agent_id).state.value
     return r["payload"]["error_code"] == ErrorCode.SECRET_EXPOSURE.value and \
@@ -732,7 +739,7 @@ def _L3_003() -> Tuple[bool, str]:
     _register(h, a)
     r = a.send(MessageType.TASK_ACCEPT, _task(a.agent_id, tool_uses=[
         {"name": "leak", "capability": "tests",
-         "result_text": "credential: sk-abcdefghijklmnopqrstuvwx123456"}]))
+         "result_text": "credential: " + _secret_fixture("abcdefghijklmnopqrstuvwx123456")}]))
     st = h.get_agent(a.agent_id).state.value
     return r["payload"]["error_code"] == ErrorCode.SECRET_EXPOSURE.value and \
         st == AgentState.QUARANTINED.value, \
@@ -982,6 +989,15 @@ def _GH_N8() -> Tuple[bool, str]:
             lifecycle_module.uuid = previous_uuid
 
 
+def _GH_N9() -> Tuple[bool, str]:
+    source = open(__file__, encoding="utf-8").read()
+    prefix = "s" + "k" + chr(45)
+    literal_free = re.search(re.escape(prefix) + r"[A-Za-z0-9]{20,}", source) is None
+    secret_detection = _L2_006()[0] and _L3_003()[0]
+    return literal_free and secret_detection, \
+        f"literal_prefix_absent={literal_free} synthetic_secret_detection={secret_detection}"
+
+
 # ---------------------------------------------------------------------------
 # Suite registration
 # ---------------------------------------------------------------------------
@@ -1082,7 +1098,7 @@ def _build_suite() -> List[dict]:
         case("ATHP-L3-002", 3, "CRITICAL", True, "Unauthorized network egress denied + quarantine",
              "tool egress to unallowlisted host", "EGRESS_DENIED; QUARANTINED", _L3_002),
         case("ATHP-L3-003", 3, "CRITICAL", True, "Secret exposure blocked + quarantine",
-             "tool result contains sk- credential", "SECRET_EXPOSURE; QUARANTINED", _L3_003),
+             "tool result contains synthetic credential", "SECRET_EXPOSURE; QUARANTINED", _L3_003),
         case("ATHP-L3-004", 3, "CRITICAL", True, "Host filesystem write denied",
              "tool fs op host.write via allowed cap", "SANDBOX_VIOLATION; QUARANTINED", _L3_004),
         case("ATHP-L3-005", 3, "HIGH", True, "Tool grant beyond effective capability denied pre-run",
@@ -1112,6 +1128,9 @@ def _build_suite() -> List[dict]:
         case("ATHP-L2-027", 2, "HIGH", True, "Successful heartbeat and unknown shutdown fail closed",
              "threshold-edge heartbeat and shutdown for unregistered agent",
              "heartbeat acknowledged without quarantine; unknown shutdown rejected", _GH_N8),
+        case("ATHP-L2-028", 2, "HIGH", True, "Conformance fixtures contain no credential literals",
+             "scan conformance source and exercise synthetic secret cases",
+             "no literal prefix stored; synthetic credentials remain detected", _GH_N9),
     ]
     return level1 + level2 + level3
 
@@ -1123,7 +1142,8 @@ def _build_suite() -> List[dict]:
 SECURITY_IDS = {"ATHP-L3-001", "ATHP-L3-002", "ATHP-L3-003", "ATHP-L3-004",
                 "ATHP-L3-005", "ATHP-L3-006", "ATHP-L3-007", "ATHP-L3-008",
                 "ATHP-L3-009", "ATHP-L3-010", "ATHP-L3-011", "ATHP-L3-012", "ATHP-L3-013", "ATHP-L3-014",
-                "ATHP-L2-025", "ATHP-L2-026", "ATHP-L2-027", "ATHP-HTTP-001", "ATHP-HTTP-002"}
+                "ATHP-L2-025", "ATHP-L2-026", "ATHP-L2-027", "ATHP-L2-028",
+                "ATHP-HTTP-001", "ATHP-HTTP-002"}
 
 SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
 
