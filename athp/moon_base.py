@@ -25,6 +25,11 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
+try:
+    from ._common import TRANSITION_RULES
+except ImportError:  # Support the legacy direct-module conformance entrypoint.
+    from _common import TRANSITION_RULES
+
 logger = logging.getLogger("athp-moon-base")
 
 ATHP_VERSION = "1.1"
@@ -180,39 +185,6 @@ AUTHORIZED_ROLES: Dict[str, Set[str]] = {
     RiskClass.MODERATE: {"ci-operator", "security-lead"},
     RiskClass.PRIVILEGED: {"security-lead"},
 }
-
-TRIGGERS = {
-    "REGISTER_OK", "REGISTER_REJECT", "TASK_ACCEPT", "TASK_RESULT",
-    "TIMEOUT", "RESOURCE_LIMIT", "HEARTBEAT_FAILURE",
-    "SECURITY_EVENT", "POLICY_EVENT", "RECOVERY",
-    "REVIEW_RESUME", "REVIEW_RETRY", "REVIEW_SHUTDOWN", "HARNESS_SHUTDOWN",
-}
-
-# (previous_state, trigger) -> new_state  (§11 required transitions)
-TRANSITION_RULES: Dict[Tuple[AgentState, str], AgentState] = {
-    (AgentState.INIT, "REGISTER_OK"): AgentState.IDLE,
-    (AgentState.INIT, "REGISTER_REJECT"): AgentState.REJECTED,
-    (AgentState.IDLE, "TASK_ACCEPT"): AgentState.EXECUTING,
-    (AgentState.EXECUTING, "TASK_RESULT"): AgentState.IDLE,
-    (AgentState.EXECUTING, "TIMEOUT"): AgentState.QUARANTINED,
-    (AgentState.EXECUTING, "RESOURCE_LIMIT"): AgentState.QUARANTINED,
-    (AgentState.EXECUTING, "HEARTBEAT_FAILURE"): AgentState.QUARANTINED,
-    (AgentState.EXECUTING, "SECURITY_EVENT"): AgentState.QUARANTINED,
-    (AgentState.EXECUTING, "POLICY_EVENT"): AgentState.QUARANTINED,
-    (AgentState.IDLE, "HEARTBEAT_FAILURE"): AgentState.QUARANTINED,
-    (AgentState.QUARANTINED, "RECOVERY"): AgentState.IDLE,
-    (AgentState.QUARANTINED, "REVIEW_RESUME"): AgentState.IDLE,
-    (AgentState.QUARANTINED, "SECURITY_EVENT"): AgentState.ESCALATED,
-    (AgentState.QUARANTINED, "POLICY_EVENT"): AgentState.ESCALATED,
-    (AgentState.ESCALATED, "REVIEW_RESUME"): AgentState.IDLE,
-    (AgentState.ESCALATED, "REVIEW_RETRY"): AgentState.IDLE,
-    (AgentState.ESCALATED, "REVIEW_SHUTDOWN"): AgentState.SHUTDOWN,
-    (AgentState.IDLE, "HARNESS_SHUTDOWN"): AgentState.SHUTDOWN,
-    (AgentState.QUARANTINED, "HARNESS_SHUTDOWN"): AgentState.SHUTDOWN,
-    (AgentState.ESCALATED, "HARNESS_SHUTDOWN"): AgentState.SHUTDOWN,
-    (AgentState.REJECTED, "HARNESS_SHUTDOWN"): AgentState.SHUTDOWN,
-}
-
 
 # ---------------------------------------------------------------------------
 # 3. Sandbox policy (§6 - deny-by-default)
@@ -507,17 +479,18 @@ class Harness:
                    reason_code: str = "NONE") -> Optional[EvidenceSpan]:
         """Attempt `trigger` on the agent's current state.
 
-        Legal outcome is taken from TRANSITION_RULES.  Unknown triggers,
+        Legal outcome is taken from the shared TRANSITION_RULES. Unknown triggers,
         illegal transitions, and missing/unknown states -> None (STATE_INVALID).
         """
         agent = self.get_agent(agent_id)
         prev = agent.state
-        if trigger not in TRIGGERS or agent.state not in AgentState:
+        if not isinstance(trigger, str) or not isinstance(agent.state, AgentState):
             return None
-        key = (prev, trigger)
-        new_state = TRANSITION_RULES.get(key)
-        if new_state is None:
+        key = (prev.value, trigger)
+        new_state_value = TRANSITION_RULES.get(key)
+        if new_state_value is None:
             return None
+        new_state = AgentState(new_state_value)
         resume_decision = None
         if trigger in {"RECOVERY", "REVIEW_RESUME"}:
             if not self.perform_health_checks(agent_id):
